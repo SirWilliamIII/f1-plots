@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>F1 Telemetry Compare</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background: url("{{ url_for('static', filename='track-bg.jpg') }}") no-repeat center center fixed;
+      background-size: cover;
+      min-height: 100vh;
+    }
+    .form-box, .driver-select-box {
+      background: rgba(255,255,255,0.7);
+      border-radius: 16px;
+      border: 2px solid #DC0000;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      padding: 2.5rem 2.5rem 2rem 2.5rem;
+      max-width: 420px;
+      margin: 3rem auto 0 auto;
+      color: #333333;
+      font-family: 'Orbitron', sans-serif;
+    }
+    #select-drivers-btn, #compare-button {
+      width: 100%;
+      margin-top: 2rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      border: none;
+      background: #DC0000 !important;
+      color: #fff !important;
+      font-size: 1.2rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #select-drivers-btn:hover, #compare-button:hover {
+      background: #a80000 !important;
+    }
+    .form-box h3, .driver-select-box h3 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.6rem;
+      letter-spacing: 1px;
+      color: #333333;
+    }
+    .form-box label, .driver-select-box label {
+      display: block;
+      margin-top: 1.2rem;
+      margin-bottom: 0.3rem;
+      font-size: 1.1rem;
+      letter-spacing: 0.5px;
+      color: #333333;
+    }
+    .form-box select, .driver-select-box select {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: none;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      background: #f3f6fa;
+      color: #333333;
+    }
+    #select-drivers-btn, #compare-button {
+      width: 100%;
+      margin-top: 2rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      border: none;
+      background: #00e1ff;
+      color: #333333;
+      ;
+      font-size: 1.2rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #select-drivers-btn:hover, #compare-button:hover {
+      background: #00b3cc;
+    }
+    .driver-select-box, .form-box {
+      background: rgba(255,255,255,0.85);
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.13);
+      padding: 2rem 2rem 1.5rem 2rem;
+      max-width: 400px;
+      margin: 3rem auto 0 auto;
+      color: #333333;
+      font-family: 'Orbitron', sans-serif;
+      text-align: center;
+    }
+    .driver-select-box h3, .form-box h3 {
+      margin-bottom: 1.5rem;
+      font-size: 1.3rem;
+      letter-spacing: 1px;
+      color: #333333;
+    }
+    .driver-select-box label {
+      margin-top: 1rem;
+      margin-bottom: 0.3rem;
+      font-size: 1.08rem;
+      color: #333333;
+    }
+    .driver-select-box select {
+      margin-bottom: 1.2rem;
+      background: #f3f6fa;
+      color: #333333;
+    }
+  </style>
+</head>
+<body>
+  {% if not driver_options %}
+  <div class="form-box">
+    <h3>Choose the Race</h3>
+    <form method="POST">
+      <label for="year">Year:</label>
+      <select name="year" id="year" required>
+        {% for year in years %}
+        <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>{{ year }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="race">Race:</label>
+      <select name="race" id="race" required>
+        {% for race in races %}
+        <option value="{{ race }}" {% if selected_race == race %}selected{% endif %}>{{ race }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="session">Session:</label>
+      <select name="session" id="session" required>
+        {% for sess in sessions %}
+        <option value="{{ sess }}" {% if selected_session == sess %}selected{% endif %}>{{ sess }}</option>
+        {% endfor %}
+      </select>
+
+      <button id="select-drivers-btn" type="submit"><span id="select-drivers-btn-text">SELECT DRIVERS</span><span id="loading-dots" style="display:none">&nbsp;<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span></button>
+    </form>
+  </div>
+  <script>
+    // Only attach if the button exists
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('select-drivers-btn');
+      if (btn) {
+        btn.addEventListener('click', function(e) {
+          var text = document.getElementById('select-drivers-btn-text');
+          var dots = document.getElementById('loading-dots');
+          if (text && dots) {
+            text.textContent = 'Loading Drivers';
+            dots.style.display = 'inline';
+            // Do not disable the button to allow form submission
+          }
+        });
+      }
+    });
+  </script>
+  <style>
+    .dot {
+      animation: blink 1.2s infinite both;
+      opacity: 0.3;
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+    .dot:nth-child(1) { animation-delay: 0s; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink {
+      0%, 80%, 100% { opacity: 0.3; }
+      40% { opacity: 1; }
+    }
+  </style>
+  {% endif %}
+
+  {% if driver_options %}
+  <div class="driver-select-box">
+    <h3>Select Drivers to Compare</h3>
+    <form method="POST">
+      <input type="hidden" name="year" value="{{ selected_year }}">
+      <input type="hidden" name="race" value="{{ selected_race }}">
+      <input type="hidden" name="session" value="{{ selected_session }}">
+      <label for="driver1">Driver 1:</label>
+      <select name="driver1" id="driver1" required>
+        {% for d in driver_options %}
+        <option value="{{ d.abbreviation }}">{{ d.broadcast_name }}</option>
+        {% endfor %}
+      </select>
+      <label for="driver2">Driver 2:</label>
+      <select name="driver2" id="driver2" required>
+        {% for d in driver_options %}
+        <option value="{{ d.abbreviation }}">{{ d.broadcast_name }}</option>
+        {% endfor %}
+      </select>
+      <button id="compare-button" type="submit">Compare</button>
+    </form>
+  </div>
+  {% endif %}
+</body>
+</html>

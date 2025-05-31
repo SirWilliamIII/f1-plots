@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Comparison Result</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="result-box">
+      <div class="result-header">
+        <h2>Fastest Lap Telemetry Comparison</h2>
+        <div class="lap-times">
+          <span class="lap-time">{{ drv1_abbr }}: {{ drv1_lap_time }}</span>
+          <span class="lap-time">{{ drv2_abbr }}: {{ drv2_lap_time }}</span>
+        </div>
+      </div>
+      <div class="plot-container">
+        <img
+          src="{{ url_for('static', filename=plot_path.split('static/')[-1]) }}"
+          alt="Telemetry Plot"
+        />
+      </div>
+      <a class="compare-another-btn" href="/">&#8592; Compare another</a>
+    </div>
+  </body>
+</html>
