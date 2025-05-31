@@ -229,3 +229,4 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")
+
