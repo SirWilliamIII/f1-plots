@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, request
+import uuid
+from io import BytesIO
+from flask import Flask, render_template, request, send_file
 import fastf1
 from fastf1 import plotting
 import matplotlib
@@ -19,9 +21,11 @@ os.makedirs("fastf1_cache", exist_ok=True)
 fastf1.Cache.enable_cache("fastf1_cache")
 plotting.setup_mpl(color_scheme="fastf1", misc_mpl_mods=False)
 
+last_plot_buf = None
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    global last_plot_buf
     years = list(range(2020, 2026))
     sessions = ["Qualifying", "Race"]
     session_map = {"Qualifying": "Q", "Race": "R"}
@@ -36,7 +40,6 @@ def index():
     selected_session = None
 
     if request.method == "POST":
-        # Step 1: year/gp/session_type selected, but not drivers yet
         if (
             "year" in request.form
             and "race" in request.form
@@ -48,8 +51,11 @@ def index():
             selected_session = request.form["session"]
             session_type = session_map[selected_session]
             session = fastf1.get_session(selected_year, selected_race, session_type)
-            session.load()
-            # Build driver options: list of dicts with abbreviation and broadcast name
+            try:
+                session.load()
+            except Exception as e:
+                print(f"[ERROR] Failed to load session: {e}")
+                return render_template("error.html", message="Failed to load F1 session.")
             driver_options = [
                 {
                     "abbreviation": session.get_driver(num)["Abbreviation"],
@@ -67,7 +73,6 @@ def index():
                 selected_race=selected_race,
                 selected_session=selected_session,
             )
-        # Step 2: drivers selected, generate plot
         elif (
             "year" in request.form
             and "race" in request.form
@@ -82,19 +87,21 @@ def index():
             driver1 = request.form["driver1"]
             driver2 = request.form["driver2"]
             session = fastf1.get_session(selected_year, selected_race, session_type)
-            session.load()
-            plot_path, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
-                compare_fastest_laps(session, driver1, driver2)
-            )
+            try:
+                session.load()
+            except Exception as e:
+                print(f"[ERROR] Failed to load session: {e}")
+                return render_template("error.html", message="Failed to load F1 session.")
+            plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = compare_fastest_laps(session, driver1, driver2)
+            last_plot_buf = plot_buf
             return render_template(
                 "result.html",
-                plot_path=plot_path,
+                plot_path="/plot.png",
                 drv1_abbr=drv1_abbr,
                 drv1_lap_time=drv1_lap_time_str,
                 drv2_abbr=drv2_abbr,
                 drv2_lap_time=drv2_lap_time_str,
             )
-    # GET or initial load: no drivers yet
     return render_template(
         "index.html",
         years=years,
@@ -106,10 +113,14 @@ def index():
         selected_session=selected_session,
     )
 
+@app.route("/plot.png")
+def serve_plot():
+    global last_plot_buf
+    if last_plot_buf:
+        return send_file(last_plot_buf, mimetype="image/png")
+    return "No plot available", 404
 
-def classify_moment(
-    t1: float, t2: float, b1: float, b2: float, v1: float, v2: float
-) -> str:
+def classify_moment(t1: float, t2: float, b1: float, b2: float, v1: float, v2: float) -> str:
     throttle_diff = t1 - t2
     brake_diff = b1 - b2
     speed_diff = v1 - v2
@@ -122,7 +133,6 @@ def classify_moment(
     if (t1 < 5 or t2 < 5) and (b1 < 0.05 and b2 < 0.05):
         return "Correction for over/under‑steer"
     return "Momentum shift"
-
 
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv1_laps = session.laps.pick_driver(drv1_abbr)
@@ -214,19 +224,11 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     plt.suptitle(sup_title, **title_font)
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
-    os.makedirs("static/plots", exist_ok=True)
-    img_path = f"static/plots/{drv1_abbr}_{drv2_abbr}.png"
-    plt.savefig(img_path, facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180)
+    buf = BytesIO()
+    plt.savefig(buf, format="png", facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180)
     plt.close()
-    return (
-        img_path,
-        drv1_abbr,
-        _format(drv1_fastest["LapTime"]),
-        drv2_abbr,
-        _format(drv2_fastest["LapTime"]),
-    )
-
+    buf.seek(0)
+    return buf, drv1_abbr, _format(drv1_fastest["LapTime"]), drv2_abbr, _format(drv2_fastest["LapTime"])
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")
-

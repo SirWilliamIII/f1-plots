@@ -21,10 +21,7 @@
         </div>
       </div>
       <div class="plot-container">
-        <img
-          src="{{ url_for('static', filename=plot_path.split('static/')[-1]) }}"
-          alt="Telemetry Plot"
-        />
+        <img src="{{ plot_path }}" alt="Telemetry Plot" />
       </div>
       <a class="compare-another-btn" href="/">&#8592; Compare another</a>
     </div>
