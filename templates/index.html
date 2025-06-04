@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-MM4NF82W');</script>
+<!-- End Google Tag Manager -->
   <title>F1 Telemetry Compare</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
@@ -9,6 +16,10 @@
   </style>
 </head>
 <body>
+  <!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MM4NF82W"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
   {% if not driver_options %}
   <div class="form-box">
     <h3>Choose the Race</h3>
