@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from utils import classify_moment
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 load_dotenv()
 
@@ -27,6 +27,7 @@ fastf1.Cache.enable_cache("fastf1_cache")
 plotting.setup_mpl(color_scheme="fastf1", misc_mpl_mods=False)
 
 last_plot_buf = None
+
 
 @app.route("/get_races", methods=["POST"])
 def get_races():
@@ -42,6 +43,7 @@ def get_races():
     except Exception as e:
         logging.error(f"[ERROR] Failed to fetch races: {e}")
         return {"error": "Failed to fetch races"}, 500
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -63,7 +65,6 @@ def index():
 
         if (
             "year" in request.form
-
             and "race" in request.form
             and "session" in request.form
             and ("driver1" not in request.form or "driver2" not in request.form)
@@ -78,7 +79,9 @@ def index():
 
             except Exception as e:
                 print(f"[ERROR] Failed to load session: {e}")
-                return render_template("error.html", message="Failed to load F1 session.")
+                return render_template(
+                    "error.html", message="Failed to load F1 session."
+                )
             driver_options = [
                 {
                     "abbreviation": session.get_driver(num)["Abbreviation"],
@@ -114,8 +117,12 @@ def index():
                 session.load()
             except Exception as e:
                 print(f"[ERROR] Failed to load session: {e}")
-                return render_template("error.html", message="Failed to load F1 session.")
-            plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = compare_fastest_laps(session, driver1, driver2)
+                return render_template(
+                    "error.html", message="Failed to load F1 session."
+                )
+            plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
+                compare_fastest_laps(session, driver1, driver2)
+            )
             last_plot_buf = plot_buf
             return render_template(
                 "result.html",
@@ -135,6 +142,7 @@ def index():
         selected_race=selected_race,
         selected_session=selected_session,
     )
+
 
 @app.route("/plot.png")
 def serve_plot():
@@ -195,8 +203,14 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             cum += s.total_seconds()
             drv1_sector_ends.append(cum)
     # Prepare sector time strings
-    drv1_sector_strs = [f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else "" for i, s in enumerate(drv1_sector_times)]
-    drv2_sector_strs = [f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else "" for i, s in enumerate(drv2_sector_times)]
+    drv1_sector_strs = [
+        f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else ""
+        for i, s in enumerate(drv1_sector_times)
+    ]
+    drv2_sector_strs = [
+        f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else ""
+        for i, s in enumerate(drv2_sector_times)
+    ]
 
     # --- End sector annotation prep ---
 
@@ -205,7 +219,6 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         min(drv1_tel["Distance"].max(), drv2_tel["Distance"].max()),
         1500,
     )
-
 
     drv1_time = np.interp(
         common_dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
@@ -223,21 +236,35 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     tick_font = {"fontsize": 12, "color": "white"}
     title_font = {"fontsize": 24, "color": "white"}
     axes[0].plot(
-        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Throttle"], color=drv1_color, label=drv1_abbr
+        drv1_tel["Time"].dt.total_seconds(),
+        drv1_tel["Throttle"],
+        color=drv1_color,
+        label=drv1_abbr,
     )
     axes[0].plot(
-        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Throttle"], color=drv2_color, label=drv2_abbr
+        drv2_tel["Time"].dt.total_seconds(),
+        drv2_tel["Throttle"],
+        color=drv2_color,
+        label=drv2_abbr,
     )
     axes[0].set_ylabel("Throttle", **label_font)
     axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white")
-    axes[1].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["Brake"], color=drv1_color)
-    axes[1].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color)
+    axes[1].plot(
+        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Brake"], color=drv1_color
+    )
+    axes[1].plot(
+        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color
+    )
     axes[1].set_ylabel("Brakes", **label_font)
     axes[2].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["RPM"], color=drv1_color)
     axes[2].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["RPM"], color=drv2_color)
     axes[2].set_ylabel("RPM", **label_font)
-    axes[3].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["Speed"], color=drv1_color)
-    axes[3].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["Speed"], color=drv2_color)
+    axes[3].plot(
+        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Speed"], color=drv1_color
+    )
+    axes[3].plot(
+        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Speed"], color=drv2_color
+    )
     axes[3].set_ylabel("Speed (km/h)", **label_font)
     axes[3].set_xlabel("Lap Time (s)", **label_font)
     if key_idxs.size:
@@ -245,8 +272,12 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         for idx in top_swings:
             dist = common_dist[idx]
             # Find the corresponding time for the distance for both drivers
-            t1_time = np.interp(dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds())
-            t2_time = np.interp(dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds())
+            t1_time = np.interp(
+                dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
+            )
+            t2_time = np.interp(
+                dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
+            )
             # Use the average time for the vertical line and annotation
             avg_time = (t1_time + t2_time) / 2
             t1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Throttle"])
@@ -257,7 +288,9 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             v2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Speed"])
             label = classify_moment(t1, t2, b1, b2, v1, v2)
             for ax in axes:
-                ax.axvline(avg_time, color="yellow", linestyle="--", alpha=0.15, linewidth=1)
+                ax.axvline(
+                    avg_time, color="yellow", linestyle="--", alpha=0.15, linewidth=1
+                )
             axes[3].annotate(
                 label,
                 xy=(avg_time, (v1 + v2) / 2),
@@ -276,8 +309,15 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv2_best_sectors = [drv2_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
 
     # Draw sector lines and annotate sector times
-    for i, (end, s1str, s2str, s1time, s2time) in enumerate(zip(
-        drv1_sector_ends, drv1_sector_strs, drv2_sector_strs, drv1_sector_times, drv2_sector_times)):
+    for i, (end, s1str, s2str, s1time, s2time) in enumerate(
+        zip(
+            drv1_sector_ends,
+            drv1_sector_strs,
+            drv2_sector_strs,
+            drv1_sector_times,
+            drv2_sector_times,
+        )
+    ):
         if end is not None:
             for ax in axes:
                 ax.axvline(end, color="#888", linestyle=":", alpha=0.7, linewidth=2)
@@ -301,10 +341,11 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                     box_color2 = drv2_color
             else:
                 box_color2 = drv2_color
+
             # Helper to determine best text color (black or white) for a given background
             def get_contrast_text_color(bg_color):
-                bg_color = bg_color.lstrip('#')
-                r, g, b = tuple(int(bg_color[i:i+2], 16) for i in (0, 2, 4))
+                bg_color = bg_color.lstrip("#")
+                r, g, b = tuple(int(bg_color[i : i + 2], 16) for i in (0, 2, 4))
                 brightness = (r * 299 + g * 587 + b * 114) / 1000
                 return "black" if brightness > 170 else "white"
 
@@ -322,7 +363,13 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 color=color1,
                 fontsize=22,
                 fontweight="bold",
-                bbox=dict(facecolor=box_color1, edgecolor="white", boxstyle="round,pad=0.8", alpha=0.98, linewidth=3),
+                bbox=dict(
+                    facecolor=box_color1,
+                    edgecolor="white",
+                    boxstyle="round,pad=0.8",
+                    alpha=0.98,
+                    linewidth=3,
+                ),
                 zorder=10,
             )
             axes[2].annotate(
@@ -334,28 +381,45 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 color=color2,
                 fontsize=22,
                 fontweight="bold",
-                bbox=dict(facecolor=box_color2, edgecolor="white", boxstyle="round,pad=0.8", alpha=0.98, linewidth=3),
+                bbox=dict(
+                    facecolor=box_color2,
+                    edgecolor="white",
+                    boxstyle="round,pad=0.8",
+                    alpha=0.98,
+                    linewidth=3,
+                ),
                 zorder=10,
             )
 
     # Custom x-axis formatting: stopwatch style mm:ss.sss
     from matplotlib.ticker import FuncFormatter
+
     def stopwatch_fmt(x, pos):
         mins = int(x // 60)
         secs = x % 60
         return f"{mins:01d}:{secs:06.3f}"
+
     axes[3].xaxis.set_major_formatter(FuncFormatter(stopwatch_fmt))
 
     # Optionally, set major ticks at big moments (turns/braking zones)
     # We'll use the avg_time of moments with relevant labels
-    big_moment_labels = {"Later braking", "Big brake difference", "Big speed advantage", "Overtake or pass"}
+    big_moment_labels = {
+        "Later braking",
+        "Big brake difference",
+        "Big speed advantage",
+        "Overtake or pass",
+    }
     big_moment_times = []
     if key_idxs.size:
         top_swings = key_idxs[np.argsort(-np.abs(delta_diff[key_idxs]))][:3]
         for idx in top_swings:
             dist = common_dist[idx]
-            t1_time = np.interp(dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds())
-            t2_time = np.interp(dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds())
+            t1_time = np.interp(
+                dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
+            )
+            t2_time = np.interp(
+                dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
+            )
             avg_time = (t1_time + t2_time) / 2
             t1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Throttle"])
             t2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Throttle"])
@@ -387,10 +451,19 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
     buf = BytesIO()
-    plt.savefig(buf, format="png", facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180)
+    plt.savefig(
+        buf, format="png", facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180
+    )
     plt.close()
     buf.seek(0)
-    return buf, drv1_abbr, _format(drv1_fastest["LapTime"]), drv2_abbr, _format(drv2_fastest["LapTime"])
+    return (
+        buf,
+        drv1_abbr,
+        _format(drv1_fastest["LapTime"]),
+        drv2_abbr,
+        _format(drv2_fastest["LapTime"]),
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")

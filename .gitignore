@@ -205,3 +205,4 @@ deployment
 !.elasticbeanstalk/*.global.yml
 fastf1_cache/
 
+.vscode/
