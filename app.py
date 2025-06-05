@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from fastf1.plotting import get_driver_color
 from dotenv import load_dotenv
+from utils import classify_moment
 
 load_dotenv()
 
@@ -120,59 +121,6 @@ def serve_plot():
         return send_file(last_plot_buf, mimetype="image/png")
     return "No plot available", 404
 
-def classify_moment(
-    t1: float, t2: float, b1: float, b2: float, v1: float, v2: float,
-    prev_t1: float = None, prev_t2: float = None, prev_b1: float = None, prev_b2: float = None
-) -> str:
-    throttle_diff = t1 - t2
-    brake_diff = b1 - b2
-    speed_diff = v1 - v2
-
-    # 1. Earlier throttle ON (check for rising edge, not just absolute value)
-    if prev_t1 is not None and prev_t2 is not None:
-        if (t1 > 20 and prev_t1 < 10) and (t2 < 10):
-            return "Earlier throttle"
-        if (t2 > 20 and prev_t2 < 10) and (t1 < 10):
-            return "Earlier throttle"
-    # 2. Later braking (check for brake release point)
-    if prev_b1 is not None and prev_b2 is not None:
-        if (b1 < 0.1 and prev_b1 > 0.2) and (b2 > 0.2):
-            return "Later braking"
-        if (b2 < 0.1 and prev_b2 > 0.2) and (b1 > 0.2):
-            return "Later braking"
-    # 3. Higher mid-corner speed (sustained, even if small)
-    if (b1 < 0.05 and b2 < 0.05) and (t1 < 10 and t2 < 10) and abs(speed_diff) > 2:
-        return "Higher mid‑corner speed"
-    # 4. Better exit (throttle advantage leads to speed gain)
-    if (t1 > 30 and t2 < 15 and v1 > v2 + 3):
-        return "Better exit"
-    if (t2 > 30 and t1 < 15 and v2 > v1 + 3):
-        return "Better exit"
-    # 5. Correction for over/under-steer (low throttle+brake, speed drop)
-    if (t1 < 5 or t2 < 5) and (b1 < 0.05 and b2 < 0.05) and (max(v1, v2) > 80):
-        return "Correction for over/under‑steer"
-    # 6. Large, sustained speed delta (big advantage)
-    if abs(speed_diff) > 5:
-        return "Big speed advantage"
-    # 7. Sudden, large throttle or brake difference
-    if abs(throttle_diff) > 40:
-        return "Big throttle difference"
-    if abs(brake_diff) > 0.7:
-        return "Big brake difference"
-    # 8. Sharp speed drop (possible mistake)
-    if prev_t1 is not None and prev_t2 is not None and prev_b1 is not None and prev_b2 is not None:
-        if (v1 < prev_t1 - 10) or (v2 < prev_t2 - 10):
-            return "Possible mistake or off-track"
-    # 9. Overtake-like event (speed crossover and sustained lead)
-    if (v1 > v2 + 2 and speed_diff > 0 and prev_t1 is not None and prev_t2 is not None and prev_t1 < prev_t2):
-        return "Overtake or pass"
-    if (v2 > v1 + 2 and speed_diff < 0 and prev_t1 is not None and prev_t2 is not None and prev_t2 < prev_t1):
-        return "Overtake or pass"
-    # 10. Micro-momentum shift (catch all, small but relevant)
-    if abs(speed_diff) > 1.5:
-        return "Micro momentum shift"
-    return "Momentum shift"
-
 
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv1_laps = session.laps.pick_driver(drv1_abbr)
@@ -185,11 +133,32 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv2_fastest = drv2_laps.pick_fastest()
     drv1_tel = drv1_fastest.get_telemetry().add_distance()
     drv2_tel = drv2_fastest.get_telemetry().add_distance()
+
+    # --- Sector times and cumulative ends ---
+    drv1_sector_times = [drv1_fastest[f"Sector{i}Time"] for i in range(1, 4)]
+    drv2_sector_times = [drv2_fastest[f"Sector{i}Time"] for i in range(1, 4)]
+    # Use driver 1's sector ends for annotation (could average, but usually very close)
+    drv1_sector_ends = []
+    cum = 0.0
+    for s in drv1_sector_times:
+        if pd.isnull(s):
+            drv1_sector_ends.append(None)
+        else:
+            cum += s.total_seconds()
+            drv1_sector_ends.append(cum)
+    # Prepare sector time strings
+    drv1_sector_strs = [f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else "" for i, s in enumerate(drv1_sector_times)]
+    drv2_sector_strs = [f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else "" for i, s in enumerate(drv2_sector_times)]
+
+    # --- End sector annotation prep ---
+
     common_dist = np.linspace(
         max(drv1_tel["Distance"].min(), drv2_tel["Distance"].min()),
         min(drv1_tel["Distance"].max(), drv2_tel["Distance"].max()),
         1500,
     )
+
+
     drv1_time = np.interp(
         common_dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
     )
@@ -250,6 +219,75 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 color="yellow",
                 fontsize=12,
                 backgroundcolor="#222",
+            )
+
+    # --- Find session best (purple) and personal best (green) for each sector ---
+    all_laps = session.laps.pick_quicklaps()
+    session_best_sectors = [all_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
+    drv1_best_sectors = [drv1_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
+    drv2_best_sectors = [drv2_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
+
+    # Draw sector lines and annotate sector times
+    for i, (end, s1str, s2str, s1time, s2time) in enumerate(zip(
+        drv1_sector_ends, drv1_sector_strs, drv2_sector_strs, drv1_sector_times, drv2_sector_times)):
+        if end is not None:
+            for ax in axes:
+                ax.axvline(end, color="#888", linestyle=":", alpha=0.7, linewidth=2)
+            # Determine box color for driver 1
+            if not pd.isnull(s1time):
+                if s1time == session_best_sectors[i]:
+                    box_color1 = "#b800b8"  # purple
+                elif s1time == drv1_best_sectors[i]:
+                    box_color1 = "#00d400"  # green
+                else:
+                    box_color1 = drv1_color
+            else:
+                box_color1 = drv1_color
+            # Determine box color for driver 2
+            if not pd.isnull(s2time):
+                if s2time == session_best_sectors[i]:
+                    box_color2 = "#b800b8"  # purple
+                elif s2time == drv2_best_sectors[i]:
+                    box_color2 = "#00d400"  # green
+                else:
+                    box_color2 = drv2_color
+            else:
+                box_color2 = drv2_color
+            # Helper to determine best text color (black or white) for a given background
+            def get_contrast_text_color(bg_color):
+                bg_color = bg_color.lstrip('#')
+                r, g, b = tuple(int(bg_color[i:i+2], 16) for i in (0, 2, 4))
+                brightness = (r * 299 + g * 587 + b * 114) / 1000
+                return "black" if brightness > 170 else "white"
+
+            color1 = get_contrast_text_color(box_color1)
+            color2 = get_contrast_text_color(box_color2)
+            # Place first driver's sector boxes between throttle and brakes (above axes[1])
+            # Place second driver's sector boxes between brakes and RPM (above axes[2])
+            offset = 0.7  # seconds, adjust as needed for clarity
+            axes[1].annotate(
+                s1str,
+                xy=(end - offset, 1.10),
+                xycoords=("data", "axes fraction"),
+                ha="right",
+                va="bottom",
+                color=color1,
+                fontsize=22,
+                fontweight="bold",
+                bbox=dict(facecolor=box_color1, edgecolor="white", boxstyle="round,pad=0.8", alpha=0.98, linewidth=3),
+                zorder=10,
+            )
+            axes[2].annotate(
+                s2str,
+                xy=(end + offset, 1.10),
+                xycoords=("data", "axes fraction"),
+                ha="left",
+                va="bottom",
+                color=color2,
+                fontsize=22,
+                fontweight="bold",
+                bbox=dict(facecolor=box_color2, edgecolor="white", boxstyle="round,pad=0.8", alpha=0.98, linewidth=3),
+                zorder=10,
             )
 
     # Custom x-axis formatting: stopwatch style mm:ss.sss
