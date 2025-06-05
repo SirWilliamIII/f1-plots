@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, send_file
 import fastf1
 from fastf1 import plotting
 import matplotlib
+import logging
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -13,6 +14,9 @@ import pandas as pd
 from fastf1.plotting import get_driver_color
 from dotenv import load_dotenv
 from utils import classify_moment
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 load_dotenv()
 
@@ -23,6 +27,21 @@ fastf1.Cache.enable_cache("fastf1_cache")
 plotting.setup_mpl(color_scheme="fastf1", misc_mpl_mods=False)
 
 last_plot_buf = None
+
+@app.route("/get_races", methods=["POST"])
+def get_races():
+    year = int(request.form["year"])
+    try:
+        df = fastf1.get_event_schedule(year, include_testing=False)
+        races = [
+            {"country": row["Country"], "event_name": row["EventName"]}
+            for _, row in df.iterrows()
+        ]
+        logging.info(f"Returning {len(races)} races for year={year}")
+        return {"races": races}
+    except Exception as e:
+        logging.error(f"[ERROR] Failed to fetch races: {e}")
+        return {"error": "Failed to fetch races"}, 500
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -41,8 +60,10 @@ def index():
     selected_session = None
 
     if request.method == "POST":
+
         if (
             "year" in request.form
+
             and "race" in request.form
             and "session" in request.form
             and ("driver1" not in request.form or "driver2" not in request.form)
@@ -54,6 +75,7 @@ def index():
             session = fastf1.get_session(selected_year, selected_race, session_type)
             try:
                 session.load()
+
             except Exception as e:
                 print(f"[ERROR] Failed to load session: {e}")
                 return render_template("error.html", message="Failed to load F1 session.")
@@ -120,6 +142,32 @@ def serve_plot():
     if last_plot_buf:
         return send_file(last_plot_buf, mimetype="image/png")
     return "No plot available", 404
+
+
+@app.route("/get_drivers", methods=["POST"])
+def get_drivers():
+    """
+    Returns a JSON list of drivers for the selected year, race, and session.
+    """
+    try:
+        year = int(request.form["year"])
+        race = request.form["race"]
+        session_name = request.form["session"]
+        session_map = {"Qualifying": "Q", "Race": "R"}
+        session_type = session_map.get(session_name, session_name)
+        session = fastf1.get_session(year, race, session_type)
+        session.load()
+        driver_options = [
+            {
+                "abbreviation": session.get_driver(num)["Abbreviation"],
+                "broadcast_name": session.get_driver(num)["BroadcastName"],
+            }
+            for num in session.drivers
+        ]
+        return {"drivers": driver_options}
+    except Exception as e:
+        logging.error(f"[ERROR] Failed to fetch drivers: {e}")
+        return {"drivers": []}, 500
 
 
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):

@@ -1,109 +1,120 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-MM4NF82W');</script>
-<!-- End Google Tag Manager -->
-  <title>F1 Telemetry Compare</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
-  <style>
-    
-  </style>
-</head>
-<body>
-  <!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MM4NF82W"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-  {% if not driver_options %}
-  <div class="form-box">
-    <h3>Choose the Race</h3>
-    <form method="POST">
-      <label for="year">Year:</label>
-      <select name="year" id="year" required>
-        {% for year in years %}
-        <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>{{ year }}</option>
-        {% endfor %}
-      </select>
+  <head>
+    <!-- Google Tag Manager -->
+    <script>
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || [];
+        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+        var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s),
+          dl = l != "dataLayer" ? "&l=" + l : "";
+        j.async = true;
+        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, "script", "dataLayer", "GTM-MM4NF82W");
+    </script>
+    <!-- End Google Tag Manager -->
+    <title>F1 Telemetry Compare</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript
+      ><iframe
+        src="https://www.googletagmanager.com/ns.html?id=GTM-MM4NF82W"
+        height="0"
+        width="0"
+        style="display: none; visibility: hidden"
+      ></iframe
+    ></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <div class="form-box">
+      <h3>Choose Year and Session</h3>
+      <form id="form1">
+        <label for="year">Year:</label>
+        <select name="year" id="year" required>
+          {% for year in years %}
+          <option value="{{ year }}">{{ year }}</option>
+          {% endfor %}
+        </select>
 
-      <label for="race">Race:</label>
-      <select name="race" id="race" required>
-        {% for race in races %}
-        <option value="{{ race }}" {% if selected_race == race %}selected{% endif %}>{{ race }}</option>
-        {% endfor %}
-      </select>
+        <label for="session">Session:</label>
+        <select name="session" id="session" required>
+          {% for sesh in sessions %}
+          <option value="{{ sesh }}">{{ sesh }}</option>
+          {% endfor %}
+        </select>
 
-      <label for="session">Session:</label>
-      <select name="session" id="session" required>
-        {% for sess in sessions %}
-        <option value="{{ sess }}" {% if selected_session == sess %}selected{% endif %}>{{ sess }}</option>
-        {% endfor %}
-      </select>
+        <button type="button" id="getYear">
+          <span id="getYear-text">Choose Grand Prix</span>
+          <span
+            id="getYear-loader"
+            style="display: none; vertical-align: middle; margin-left: 10px"
+          >
+            <span class="loader"></span>
+            <span id="getYear-loading-msg" style="margin-left: 8px"
+              >Loading drivers...</span
+            >
+          </span>
+        </button>
+      </form>
+    </div>
 
-      <button id="select-drivers-btn" type="submit"><span id="select-drivers-btn-text">SELECT DRIVERS</span><span id="loading-dots" style="display:none">&nbsp;<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span></button>
-    </form>
-  </div>
-  <script>
-    // Only attach if the button exists
-    document.addEventListener('DOMContentLoaded', function() {
-      var btn = document.getElementById('select-drivers-btn');
-      if (btn) {
-        btn.addEventListener('click', function(e) {
-          var text = document.getElementById('select-drivers-btn-text');
-          var dots = document.getElementById('loading-dots');
-          if (text && dots) {
-            text.textContent = 'Loading Drivers';
-            dots.style.display = 'inline';
-            // Do not disable the button to allow form submission
-          }
-        });
-      }
-    });
-  </script>
-  <style>
-    .dot {
-      animation: blink 1.2s infinite both;
-      opacity: 0.3;
-      font-weight: bold;
-      font-size: 1.2em;
-    }
-    .dot:nth-child(1) { animation-delay: 0s; }
-    .dot:nth-child(2) { animation-delay: 0.2s; }
-    .dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes blink {
-      0%, 80%, 100% { opacity: 0.3; }
-      40% { opacity: 1; }
-    }
-  </style>
-  {% endif %}
+    <div class="form-box" id="form2-container">
+      <h3>Select Grand Prix</h3>
+      <form id="form2" method="POST" action="/">
+        <input type="hidden" name="year" id="hidden-year" />
+        <input type="hidden" name="session" id="hidden-session" />
+        <label for="race">Race:</label>
+        <select name="race" id="race" required disabled>
+          <option value="">Select a country</option>
+        </select>
+        <button type="button" id="choose-drivers-btn" disabled>
+          <span id="choose-drivers-btn-text">Choose Drivers</span>
+          <span
+            id="choose-drivers-loader"
+            style="display: none; vertical-align: middle; margin-left: 10px"
+          >
+            <span class="loader"></span>
+          </span>
+        </button>
+      </form>
+    </div>
 
-  {% if driver_options %}
-  <div class="driver-select-box">
-    <h3>Select Drivers to Compare</h3>
-    <form method="POST">
-      <input type="hidden" name="year" value="{{ selected_year }}">
-      <input type="hidden" name="race" value="{{ selected_race }}">
-      <input type="hidden" name="session" value="{{ selected_session }}">
-      <label for="driver1">Driver 1:</label>
-      <select name="driver1" id="driver1" required>
-        {% for d in driver_options %}
-        <option value="{{ d.abbreviation }}">{{ d.broadcast_name }}</option>
-        {% endfor %}
-      </select>
-      <label for="driver2">Driver 2:</label>
-      <select name="driver2" id="driver2" required>
-        {% for d in driver_options %}
-        <option value="{{ d.abbreviation }}">{{ d.broadcast_name }}</option>
-        {% endfor %}
-      </select>
-      <button id="compare-button" type="submit">Compare</button>
-    </form>
-  </div>
-  {% endif %}
-</body>
+    <div class="form-box" id="driver-select-container">
+      <h3>Select Drivers to Compare</h3>
+      <form method="POST" action="/" id="driver-select-form">
+        <input type="hidden" name="year" id="driver-year" />
+        <input type="hidden" name="session" id="driver-session" />
+        <input type="hidden" name="race" id="driver-race" />
+        <label for="driver1">Driver 1:</label>
+        <select name="driver1" id="driver1" required disabled>
+          <option value="">Select driver 1</option>
+        </select>
+        <label for="driver2">Driver 2:</label>
+        <select name="driver2" id="driver2" required disabled>
+          <option value="">Select driver 2</option>
+        </select>
+        <button type="submit" id="select-drivers-btn" disabled>
+          <span id="select-drivers-btn-text">Generate Plots</span>
+          <span
+            id="select-drivers-loader"
+            style="display: none; vertical-align: middle; margin-left: 10px"
+          >
+            <span class="loader"></span>
+          </span>
+        </button>
+      </form>
+    </div>
+    <script></script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+  </body>
 </html>
