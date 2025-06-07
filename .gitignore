@@ -6,7 +6,7 @@ static/plots/*
 # C extensions
 *.so
 .qodo/*
-
+.idea/*
 __pycache__/
 *.py[cod]*.pyc
 

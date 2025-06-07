@@ -120,6 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       showDriverForm(dummyDrivers);
+      driverSelectContainer.classList.remove("disabled");
 
       // Loader for Choose Drivers (Select Grand Prix form)
       var chooseDriversBtnText = document.getElementById(
@@ -135,6 +136,29 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Helper to switch forms
+  function showForm(formIdToShow) {
+    const forms = [
+      document.getElementById("form1-container"),
+      document.getElementById("form2-container"),
+      document.getElementById("driver-select-container"),
+    ];
+    forms.forEach((form) => {
+      if (form) {
+        if (form.id === formIdToShow) {
+          form.classList.add("active-form");
+          form.classList.remove("fade");
+        } else {
+          form.classList.remove("active-form");
+          form.classList.add("fade");
+        }
+      }
+    });
+  }
+
+  // On page load, show only the first form
+  showForm("form1-container");
+
   // Choose Grand Prix button spinner logic
   if (activateForm2Button) {
     activateForm2Button.addEventListener("click", function () {
@@ -146,6 +170,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       activateForm2Button.disabled = true;
       updateRaces();
+      showForm("form2-container");
     });
   }
 
@@ -209,6 +234,8 @@ document.addEventListener("DOMContentLoaded", function () {
             chooseDriversBtnText.style.display = "inline";
             chooseDriversLoader.style.display = "none";
           }
+          // Always show the third form
+          showForm("driver-select-container");
         })
         .catch((error) => {
           alert("Error fetching drivers.");
