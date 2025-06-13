@@ -219,11 +219,13 @@ def index():
 
 @app.route("/plot.png")
 def serve_plot():
-    """Serve the generated plot image"""
     global last_plot_buf
     if last_plot_buf:
+        logging.info("✅ Serving plot image")
         return send_file(last_plot_buf, mimetype="image/png")
+    logging.warning("❌ No plot buffer available to serve")
     return "No plot available", 404
+
 
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     """Generate telemetry comparison plot for two drivers"""
