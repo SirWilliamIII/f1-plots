@@ -96,7 +96,6 @@ html, body {
 
 /* Add arrow indicator */
 .step-title::before {
-  content: "▶";
   position: absolute;
   left: 0;
   transition: transform 0.3s;
@@ -249,7 +248,7 @@ button:disabled {
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 1000;
-  animation: slideDown 0.3s ease-out;
+  animation: slideDown 5s ease-out;
 }
 
 @keyframes slideDown {

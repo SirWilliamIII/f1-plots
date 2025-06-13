@@ -138,7 +138,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         const warning = document.getElementById('first-load-warning');
                         if (warning) {
                             warning.style.display = 'block';
-                            setTimeout(() => { warning.style.display = 'none'; }, 5000);
+                            setTimeout(() => { warning.style.display = 'none'; }, 120000);
                         }
                     } else {
                         alert("No races found for the selected year");
