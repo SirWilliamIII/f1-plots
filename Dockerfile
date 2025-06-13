@@ -19,4 +19,4 @@ RUN mkdir -p /tmp/fastf1_cache
 
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--worker-class", "sync", "--timeout", "120", "--keep-alive", "5", "--preload", "app:app"]

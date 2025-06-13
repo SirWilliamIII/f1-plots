@@ -11,7 +11,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from fastf1.plotting import get_driver_color
 from dotenv import load_dotenv
 from utils import classify_moment
 
@@ -22,15 +21,43 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Initialize FastF1 cache
 os.makedirs("fastf1_cache", exist_ok=True)
 fastf1.Cache.enable_cache("fastf1_cache")
 plotting.setup_mpl(color_scheme="fastf1", misc_mpl_mods=False)
 
+# Global variables
 last_plot_buf = None
+session_cache = {}
 
+def get_cached_session(year, race, session_type):
+    """Get or create a cached session to avoid double-loading"""
+    cache_key = f"{year}_{race}_{session_type}"
+    
+    if cache_key not in session_cache:
+        session = fastf1.get_session(year, race, session_type)
+        
+        try:
+            # Load with optimizations - skip weather and messages for speed
+            session.load(
+                telemetry=True,      # Need this for plotting
+                weather=False,       # Skip weather data for speed
+                messages=False       # Skip race control messages for speed
+            )
+            session_cache[cache_key] = session
+            logging.info(f"✅ Cached new session: {cache_key}")
+        except Exception as e:
+            # Don't cache failed sessions
+            logging.error(f"❌ Failed to load session {cache_key}: {e}")
+            raise e
+    else:
+        logging.info(f"🚀 Using cached session: {cache_key}")
+    
+    return session_cache[cache_key]
 
 @app.route("/get_races", methods=["POST"])
 def get_races():
+    """Get list of races for a given year"""
     year = int(request.form["year"])
     try:
         df = fastf1.get_event_schedule(year, include_testing=False)
@@ -44,6 +71,38 @@ def get_races():
         logging.error(f"[ERROR] Failed to fetch races: {e}")
         return {"error": "Failed to fetch races"}, 500
 
+@app.route("/get_drivers", methods=["POST"])
+def get_drivers():
+    """Returns a JSON list of drivers for the selected year, race, and session"""
+    try:
+        year = int(request.form["year"])
+        race = request.form["race"]
+        session_name = request.form["session"]
+        session_map = {"Qualifying": "Q", "Race": "R"}
+        session_type = session_map.get(session_name, session_name)
+        
+        # Use cached session with better error handling
+        session = get_cached_session(year, race, session_type)
+        
+        # Check if session loaded properly
+        if not hasattr(session, 'drivers') or len(session.drivers) == 0:
+            return {"error": f"No driver data available for {year} {race} {session_name}"}, 400
+        
+        driver_options = [
+            {
+                "abbreviation": session.get_driver(num)["Abbreviation"],
+                "broadcast_name": session.get_driver(num)["BroadcastName"],
+            }
+            for num in session.drivers
+        ]
+        return {"drivers": driver_options}
+    
+    except Exception as e:
+        error_msg = str(e)
+        if "SessionNotAvailableError" in error_msg or "No data for this session" in error_msg:
+            return {"error": f"Session data not available for {year} {race} {session_name}. Try a different year/race combination."}, 400
+        logging.error(f"[ERROR] Failed to fetch drivers: {e}")
+        return {"error": "Failed to load session data. Please try again."}, 500
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -51,18 +110,24 @@ def index():
     years = list(range(2020, 2026))
     sessions = ["Qualifying", "Race"]
     session_map = {"Qualifying": "Q", "Race": "R"}
-    races = [
-        race
-        for race in fastf1.get_event_schedule(2023)["EventName"].tolist()
-        if "testing" not in race.lower()
-    ]
+    
+    # Get races for default year (2023) for initial page load
+    try:
+        races = [
+            race
+            for race in fastf1.get_event_schedule(2023)["EventName"].tolist()
+            if "testing" not in race.lower()
+        ]
+    except:
+        races = []
+    
     drivers = None
     selected_year = None
     selected_race = None
     selected_session = None
 
     if request.method == "POST":
-
+        # Handle driver selection (step 1 of form)
         if (
             "year" in request.form
             and "race" in request.form
@@ -73,32 +138,36 @@ def index():
             selected_race = request.form["race"]
             selected_session = request.form["session"]
             session_type = session_map[selected_session]
-            session = fastf1.get_session(selected_year, selected_race, session_type)
+            
             try:
-                session.load()
-
-            except Exception as e:
-                print(f"[ERROR] Failed to load session: {e}")
+                session = get_cached_session(selected_year, selected_race, session_type)
+                
+                driver_options = [
+                    {
+                        "abbreviation": session.get_driver(num)["Abbreviation"],
+                        "broadcast_name": session.get_driver(num)["BroadcastName"],
+                    }
+                    for num in session.drivers
+                ]
+                
                 return render_template(
-                    "error.html", message="Failed to load F1 session."
+                    "index.html",
+                    years=years,
+                    races=races,
+                    sessions=sessions,
+                    driver_options=driver_options,
+                    selected_year=selected_year,
+                    selected_race=selected_race,
+                    selected_session=selected_session,
                 )
-            driver_options = [
-                {
-                    "abbreviation": session.get_driver(num)["Abbreviation"],
-                    "broadcast_name": session.get_driver(num)["BroadcastName"],
-                }
-                for num in session.drivers
-            ]
-            return render_template(
-                "index.html",
-                years=years,
-                races=races,
-                sessions=sessions,
-                driver_options=driver_options,
-                selected_year=selected_year,
-                selected_race=selected_race,
-                selected_session=selected_session,
-            )
+            except Exception as e:
+                logging.error(f"[ERROR] Failed to load session: {e}")
+                return render_template(
+                    "error.html", 
+                    message=f"Failed to load F1 session data for {selected_year} {selected_race} {selected_session}. Please try a different combination."
+                )
+        
+        # Handle plot generation (step 2 of form)
         elif (
             "year" in request.form
             and "race" in request.form
@@ -112,26 +181,31 @@ def index():
             session_type = session_map[selected_session]
             driver1 = request.form["driver1"]
             driver2 = request.form["driver2"]
-            session = fastf1.get_session(selected_year, selected_race, session_type)
+            
             try:
-                session.load()
-            except Exception as e:
-                print(f"[ERROR] Failed to load session: {e}")
-                return render_template(
-                    "error.html", message="Failed to load F1 session."
+                session = get_cached_session(selected_year, selected_race, session_type)
+                
+                plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
+                    compare_fastest_laps(session, driver1, driver2)
                 )
-            plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
-                compare_fastest_laps(session, driver1, driver2)
-            )
-            last_plot_buf = plot_buf
-            return render_template(
-                "result.html",
-                plot_path="/plot.png",
-                drv1_abbr=drv1_abbr,
-                drv1_lap_time=drv1_lap_time_str,
-                drv2_abbr=drv2_abbr,
-                drv2_lap_time=drv2_lap_time_str,
-            )
+                last_plot_buf = plot_buf
+                
+                return render_template(
+                    "result.html",
+                    plot_path="/plot.png",
+                    drv1_abbr=drv1_abbr,
+                    drv1_lap_time=drv1_lap_time_str,
+                    drv2_abbr=drv2_abbr,
+                    drv2_lap_time=drv2_lap_time_str,
+                )
+            except Exception as e:
+                logging.error(f"[ERROR] Failed to generate plot: {e}")
+                return render_template(
+                    "error.html", 
+                    message="Failed to generate telemetry comparison. Please try again."
+                )
+    
+    # Default GET request
     return render_template(
         "index.html",
         years=years,
@@ -143,57 +217,42 @@ def index():
         selected_session=selected_session,
     )
 
-
 @app.route("/plot.png")
 def serve_plot():
+    """Serve the generated plot image"""
     global last_plot_buf
     if last_plot_buf:
         return send_file(last_plot_buf, mimetype="image/png")
     return "No plot available", 404
 
-
-@app.route("/get_drivers", methods=["POST"])
-def get_drivers():
-    """
-    Returns a JSON list of drivers for the selected year, race, and session.
-    """
-    try:
-        year = int(request.form["year"])
-        race = request.form["race"]
-        session_name = request.form["session"]
-        session_map = {"Qualifying": "Q", "Race": "R"}
-        session_type = session_map.get(session_name, session_name)
-        session = fastf1.get_session(year, race, session_type)
-        session.load()
-        driver_options = [
-            {
-                "abbreviation": session.get_driver(num)["Abbreviation"],
-                "broadcast_name": session.get_driver(num)["BroadcastName"],
-            }
-            for num in session.drivers
-        ]
-        return {"drivers": driver_options}
-    except Exception as e:
-        logging.error(f"[ERROR] Failed to fetch drivers: {e}")
-        return {"drivers": []}, 500
-
-
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
+    """Generate telemetry comparison plot for two drivers"""
+    
+    # Get driver data
     drv1_laps = session.laps.pick_driver(drv1_abbr)
     drv2_laps = session.laps.pick_driver(drv2_abbr)
-    drv1_color = get_driver_color(drv1_abbr, session)
-    drv2_color = get_driver_color(drv2_abbr, session)
+    
+    # Get driver colors using correct FastF1 API
+    drv1_color = plotting.driver_color(drv1_abbr)
+    drv2_color = plotting.driver_color(drv2_abbr)
+    
+    # Handle same colors
     if drv1_color == drv2_color:
         drv1_color, drv2_color = "#FF6B6B", "#4ECDC4"
+    
+    # Get fastest laps
     drv1_fastest = drv1_laps.pick_fastest()
     drv2_fastest = drv2_laps.pick_fastest()
+    
+    # Get telemetry data
     drv1_tel = drv1_fastest.get_telemetry().add_distance()
     drv2_tel = drv2_fastest.get_telemetry().add_distance()
 
-    # --- Sector times and cumulative ends ---
+    # Calculate sector times
     drv1_sector_times = [drv1_fastest[f"Sector{i}Time"] for i in range(1, 4)]
     drv2_sector_times = [drv2_fastest[f"Sector{i}Time"] for i in range(1, 4)]
-    # Use driver 1's sector ends for annotation (could average, but usually very close)
+    
+    # Calculate cumulative sector ends
     drv1_sector_ends = []
     cum = 0.0
     for s in drv1_sector_times:
@@ -202,6 +261,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         else:
             cum += s.total_seconds()
             drv1_sector_ends.append(cum)
+    
     # Prepare sector time strings
     drv1_sector_strs = [
         f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else ""
@@ -212,29 +272,36 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         for i, s in enumerate(drv2_sector_times)
     ]
 
-    # --- End sector annotation prep ---
-
+    # Create common distance array for comparison
     common_dist = np.linspace(
         max(drv1_tel["Distance"].min(), drv2_tel["Distance"].min()),
         min(drv1_tel["Distance"].max(), drv2_tel["Distance"].max()),
         1500,
     )
 
+    # Interpolate timing data
     drv1_time = np.interp(
         common_dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
     )
     drv2_time = np.interp(
         common_dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
     )
+    
+    # Calculate delta and find key moments
     delta = drv2_time - drv1_time
     delta_diff = np.diff(delta)
     swing_threshold = np.percentile(np.abs(delta_diff), 99)
     key_idxs = np.where(np.abs(delta_diff) > swing_threshold)[0]
+    
+    # Create the plot
     fig, axes = plt.subplots(4, 1, figsize=(18, 12), sharex=True)
     fig.patch.set_facecolor("#111")
+    
+    # Font settings
     label_font = {"fontsize": 16, "color": "white"}
-    tick_font = {"fontsize": 12, "color": "white"}
     title_font = {"fontsize": 24, "color": "white"}
+    
+    # Plot throttle
     axes[0].plot(
         drv1_tel["Time"].dt.total_seconds(),
         drv1_tel["Throttle"],
@@ -249,6 +316,8 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     )
     axes[0].set_ylabel("Throttle", **label_font)
     axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white")
+    
+    # Plot brakes
     axes[1].plot(
         drv1_tel["Time"].dt.total_seconds(), drv1_tel["Brake"], color=drv1_color
     )
@@ -256,9 +325,13 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color
     )
     axes[1].set_ylabel("Brakes", **label_font)
+    
+    # Plot RPM
     axes[2].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["RPM"], color=drv1_color)
     axes[2].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["RPM"], color=drv2_color)
     axes[2].set_ylabel("RPM", **label_font)
+    
+    # Plot speed
     axes[3].plot(
         drv1_tel["Time"].dt.total_seconds(), drv1_tel["Speed"], color=drv1_color
     )
@@ -267,30 +340,39 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     )
     axes[3].set_ylabel("Speed (km/h)", **label_font)
     axes[3].set_xlabel("Lap Time (s)", **label_font)
+    
+    # Add key moment annotations
     if key_idxs.size:
         top_swings = key_idxs[np.argsort(-np.abs(delta_diff[key_idxs]))][:3]
         for idx in top_swings:
             dist = common_dist[idx]
-            # Find the corresponding time for the distance for both drivers
+            
+            # Find corresponding time for both drivers
             t1_time = np.interp(
                 dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
             )
             t2_time = np.interp(
                 dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
             )
-            # Use the average time for the vertical line and annotation
             avg_time = (t1_time + t2_time) / 2
+            
+            # Get telemetry values at this point
             t1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Throttle"])
             t2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Throttle"])
             b1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Brake"])
             b2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Brake"])
             v1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Speed"])
             v2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Speed"])
+            
+            # Classify the moment
             label = classify_moment(t1, t2, b1, b2, v1, v2)
+            
+            # Add vertical line and annotation
             for ax in axes:
                 ax.axvline(
                     avg_time, color="yellow", linestyle="--", alpha=0.15, linewidth=1
                 )
+            
             axes[3].annotate(
                 label,
                 xy=(avg_time, (v1 + v2) / 2),
@@ -302,13 +384,13 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 backgroundcolor="#222",
             )
 
-    # --- Find session best (purple) and personal best (green) for each sector ---
+    # Add sector analysis
     all_laps = session.laps.pick_quicklaps()
     session_best_sectors = [all_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
     drv1_best_sectors = [drv1_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
     drv2_best_sectors = [drv2_laps[f"Sector{i}Time"].min() for i in range(1, 4)]
 
-    # Draw sector lines and annotate sector times
+    # Draw sector lines and annotations
     for i, (end, s1str, s2str, s1time, s2time) in enumerate(
         zip(
             drv1_sector_ends,
@@ -319,30 +401,23 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         )
     ):
         if end is not None:
+            # Add sector boundary lines
             for ax in axes:
                 ax.axvline(end, color="#888", linestyle=":", alpha=0.7, linewidth=2)
-            # Determine box color for driver 1
-            if not pd.isnull(s1time):
-                if s1time == session_best_sectors[i]:
-                    box_color1 = "#b800b8"  # purple
-                elif s1time == drv1_best_sectors[i]:
-                    box_color1 = "#00d400"  # green
-                else:
-                    box_color1 = drv1_color
-            else:
-                box_color1 = drv1_color
-            # Determine box color for driver 2
-            if not pd.isnull(s2time):
-                if s2time == session_best_sectors[i]:
-                    box_color2 = "#b800b8"  # purple
-                elif s2time == drv2_best_sectors[i]:
-                    box_color2 = "#00d400"  # green
-                else:
-                    box_color2 = drv2_color
-            else:
-                box_color2 = drv2_color
+            
+            # Determine colors for sector time boxes
+            def get_sector_color(sector_time, session_best, personal_best, driver_color):
+                if not pd.isnull(sector_time):
+                    if sector_time == session_best:
+                        return "#b800b8"  # purple for session best
+                    elif sector_time == personal_best:
+                        return "#00d400"  # green for personal best
+                return driver_color
+            
+            box_color1 = get_sector_color(s1time, session_best_sectors[i], drv1_best_sectors[i], drv1_color)
+            box_color2 = get_sector_color(s2time, session_best_sectors[i], drv2_best_sectors[i], drv2_color)
 
-            # Helper to determine best text color (black or white) for a given background
+            # Helper for text color contrast
             def get_contrast_text_color(bg_color):
                 bg_color = bg_color.lstrip("#")
                 r, g, b = tuple(int(bg_color[i : i + 2], 16) for i in (0, 2, 4))
@@ -351,9 +426,10 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
             color1 = get_contrast_text_color(box_color1)
             color2 = get_contrast_text_color(box_color2)
-            # Place first driver's sector boxes between throttle and brakes (above axes[1])
-            # Place second driver's sector boxes between brakes and RPM (above axes[2])
-            offset = 0.7  # seconds, adjust as needed for clarity
+            
+            offset = 0.7  # seconds
+            
+            # Add sector time annotations
             axes[1].annotate(
                 s1str,
                 xy=(end - offset, 1.10),
@@ -391,7 +467,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 zorder=10,
             )
 
-    # Custom x-axis formatting: stopwatch style mm:ss.sss
+    # Format x-axis as stopwatch
     from matplotlib.ticker import FuncFormatter
 
     def stopwatch_fmt(x, pos):
@@ -401,37 +477,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
     axes[3].xaxis.set_major_formatter(FuncFormatter(stopwatch_fmt))
 
-    # Optionally, set major ticks at big moments (turns/braking zones)
-    # We'll use the avg_time of moments with relevant labels
-    big_moment_labels = {
-        "Later braking",
-        "Big brake difference",
-        "Big speed advantage",
-        "Overtake or pass",
-    }
-    big_moment_times = []
-    if key_idxs.size:
-        top_swings = key_idxs[np.argsort(-np.abs(delta_diff[key_idxs]))][:3]
-        for idx in top_swings:
-            dist = common_dist[idx]
-            t1_time = np.interp(
-                dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
-            )
-            t2_time = np.interp(
-                dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
-            )
-            avg_time = (t1_time + t2_time) / 2
-            t1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Throttle"])
-            t2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Throttle"])
-            b1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Brake"])
-            b2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Brake"])
-            v1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Speed"])
-            v2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Speed"])
-            label = classify_moment(t1, t2, b1, b2, v1, v2)
-            if label in big_moment_labels:
-                big_moment_times.append(avg_time)
-    if big_moment_times:
-        axes[3].set_xticks(sorted(big_moment_times))
+    # Style all axes
     for ax in axes:
         ax.set_facecolor("#222")
         ax.grid(True, color="gray", linestyle="--", linewidth=0.3)
@@ -440,22 +486,27 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         for label in ax.get_xticklabels() + ax.get_yticklabels():
             label.set_color("white")
 
+    # Format lap times
     def _format(lap_time):
         if lap_time is None or pd.isnull(lap_time):
             return "N/A"
         total_sec = lap_time.total_seconds()
         return f"{int(total_sec // 60)}:{total_sec % 60:06.3f}"
 
+    # Add title
     sup_title = f"{drv1_abbr} vs {drv2_abbr} – {session.event['EventName']} {session.event.year} {session.name}"
     plt.suptitle(sup_title, **title_font)
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
+    
+    # Save to buffer
     buf = BytesIO()
     plt.savefig(
         buf, format="png", facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180
     )
     plt.close()
     buf.seek(0)
+    
     return (
         buf,
         drv1_abbr,
@@ -463,7 +514,3 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         drv2_abbr,
         _format(drv2_fastest["LapTime"]),
     )
-
-
-if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0")

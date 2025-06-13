@@ -206,3 +206,6 @@ deployment
 fastf1_cache/
 
 .vscode/
+fastf1_cache/
+__pycache__/
+*.pyc

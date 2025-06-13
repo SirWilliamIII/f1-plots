@@ -9,6 +9,8 @@ def classify_moment(
     prev_t2: float = None,
     prev_b1: float = None,
     prev_b2: float = None,
+    prev_v1: float = None,
+    prev_v2: float = None,
 ) -> str:
     throttle_diff = t1 - t2
     brake_diff = b1 - b2
@@ -43,15 +45,15 @@ def classify_moment(
     # 7. Sudden, large throttle or brake difference
     if abs(throttle_diff) > 40:
         return "Big throttle difference"
-    if abs(brake_diff) > 0.7:
-        return "Big brake difference"
     # 8. Sharp speed drop (possible mistake)
     if (
-        prev_t1 is not None
-        and prev_t2 is not None
+        prev_v1 is not None
+        and prev_v2 is not None
         and prev_b1 is not None
         and prev_b2 is not None
     ):
+        if (v1 < prev_v1 - 10) or (v2 < prev_v2 - 10):
+            return "Possible mistake or off-track"
         if (v1 < prev_t1 - 10) or (v2 < prev_t2 - 10):
             return "Possible mistake or off-track"
     # 9. Overtake-like event (speed crossover and sustained lead)

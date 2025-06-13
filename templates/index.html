@@ -35,128 +35,91 @@
         style="display: none; visibility: hidden"
       ></iframe
     ></noscript>
+
+    <body>
+  <div id="first-load-warning" style="display: none;">
+    First load may take up to a minute. Please wait...
+  </div>
+  <!-- ...rest of your content... -->
+</body>
     <!-- End Google Tag Manager (noscript) -->
-
-    <div class="form-stack">
-      <div class="form-box" id="form1-container">
-        <h3>Choose Year and Session</h3>
-        <form id="form1">
-          <label for="year">Year:</label>
-          <select name="year" id="year" required>
-            {% for year in years %}
-            <option value="{{ year }}">{{ year }}</option>
-            {% endfor %}
-          </select>
-
-          <label for="session">Session:</label>
-          <select name="session" id="session" required>
-            {% for sesh in sessions %}
-            <option value="{{ sesh }}">{{ sesh }}</option>
-            {% endfor %}
-          </select>
-
-          <button type="button" id="getYear">
-            <span id="getYear-text">Choose Grand Prix</span>
-            <span
-              id="getYear-loader"
-              style="display: none; vertical-align: middle; margin-left: 10px"
-            >
-              <span class="loader"></span>
-              <span id="getYear-loading-msg" style="margin-left: 8px"></span>
-            </span>
-          </button>
-        </form>
+    <div class="multi-step-form">
+      <!-- Step 1 -->
+      <div class="step-box" id="step1">
+        <h3 class="step-title" data-target="step1-content">Choose Year and Session</h3>
+        <div class="step-content" id="step1-content">
+          <form id="form-year-session">
+            <label for="year">Year:</label>
+            <select name="year" id="year" required>
+              {% for year in years %}
+              <option value="{{ year }}">{{ year }}</option>
+              {% endfor %}
+            </select>
+            <label for="session">Session:</label>
+            <select name="session" id="session" required>
+              {% for sesh in sessions %}
+              <option value="{{ sesh }}">{{ sesh }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" id="btn-to-step2">
+              <span id="btn-to-step2-text">Choose Grand Prix</span>
+              <span id="btn-to-step2-loader" style="display: none; vertical-align: middle; margin-left: 10px">
+                <span class="loader"></span>
+                <span id="btn-to-step2-loading-msg" style="margin-left: 8px"></span>
+              </span>
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
 
-    <div class="form-box" id="form2-container">
-      <h3>Select Grand Prix</h3>
-      <form id="form2" method="POST" action="/">
-        <input type="hidden" name="year" id="hidden-year" />
-        <input type="hidden" name="session" id="hidden-session" />
-        <label for="race">Race:</label>
-        <select name="race" id="race" required disabled>
-          <option value="">Select a country</option>
-        </select>
-        <button type="button" id="choose-drivers-btn" disabled>
-          <span id="choose-drivers-btn-text">Choose Drivers</span>
-          <span
-            id="choose-drivers-loader"
-            style="display: none; vertical-align: middle; margin-left: 10px"
-          >
-            <span class="loader"></span>
-          </span>
-        </button>
-      </form>
-    </div>
+      <!-- Step 2 -->
+      <div class="step-box" id="step2">
+        <h3 class="step-title" data-target="step2-content">Select Grand Prix</h3>
+        <div class="step-content collapsed" id="step2-content">
+          <form id="form-grand-prix" method="POST" action="/">
+            <input type="hidden" name="year" id="hidden-year" />
+            <input type="hidden" name="session" id="hidden-session" />
+            <label for="race">Race:</label>
+            <select name="race" id="race" required disabled>
+              <option value="">Select a country</option>
+            </select>
+            <button type="button" id="btn-to-step3" disabled>
+              <span id="btn-to-step3-text">Choose Drivers</span>
+              <span id="btn-to-step3-loader" style="display: none; vertical-align: middle; margin-left: 10px">
+                <span class="loader"></span>
+              </span>
+            </button>
+          </form>
+        </div>
+      </div>
 
-    <div class="form-box" id="driver-select-container">
-      <form
-        method="POST"
-        action="/"
-        id="driver-select-form"
-        class=""
-      >
-        <h1>Select Drivers to Compare</h1>
-        <div>
-          <input
-            type="hidden"
-            name="year"
-            id="driver-year"
-            class="dropdown"
-            placeholder="Year"
-          />
+      <!-- Step 3 -->
+      <div class="step-box" id="step3">
+        <h3 class="step-title" data-target="step3-content">Select Drivers to Compare</h3>
+        <div class="step-content collapsed" id="step3-content">
+          <form method="POST" action="/" id="form-drivers">
+            <input type="hidden" name="year" id="driver-year" />
+            <input type="hidden" name="session" id="driver-session" />
+            <input type="hidden" name="race" id="driver-race" />
+            <label for="driver1">Driver 1:</label>
+            <select name="driver1" id="driver1" required disabled>
+              <option value="">Select driver 1</option>
+            </select>
+            <label for="driver2">Driver 2:</label>
+            <select name="driver2" id="driver2" required disabled>
+              <option value="">Select driver 2</option>
+            </select>
+            <div>
+              <button type="submit" id="btn-generate-plots" disabled>
+                <span id="btn-generate-plots-text">Generate Plots</span>
+                <span id="btn-generate-plots-loader" style="display: none; vertical-align: middle; margin-left: 10px">
+                  <span class="loader"></span>
+                </span>
+              </button>
+            </div>
+          </form>
         </div>
-        <div>
-          <input
-            type="hidden"
-            name="session"
-            id="driver-session"
-            class="dropdown"
-            placeholder="Session"
-          />
-        </div>
-        <div>
-          <input
-            type="hidden"
-            name="race"
-            id="driver-race"
-            class="dropdown"
-            placeholder="Race"
-          />
-        </div>
-        <label style="padding: 1rem 0.75rem" for="driver1">Driver 1:</label>
-        <select
-          name="driver1"
-          id="driver1"
-          class="dropdown"
-          required
-          disabled
-        >
-          <option value="">Select driver 1</option>
-        </select>
-        <label style="padding: 1rem 0.75rem" for="driver2">Driver 2:</label>
-        <select
-          name="driver2"
-          id="driver2"
-          class="dropdown"
-          required
-          disabled
-        >
-          <option value="">Select driver 2</option>
-        </select>
-        <div>
-          <button type="submit" id="select-drivers-btn" disabled>
-            <span id="select-drivers-btn-text">Generate Plots</span>
-            <span
-              id="select-drivers-loader"
-              style="display: none; vertical-align: middle; margin-left: 10px"
-            >
-              <span class="loader"></span>
-            </span>
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
 
     <script src="{{ url_for('static', filename='main.js') }}"></script>
