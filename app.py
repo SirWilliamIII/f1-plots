@@ -272,8 +272,8 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv2_laps = session.laps.pick_driver(drv2_abbr)
     
     # Get driver colors using correct FastF1 API
-    drv1_color = plotting.driver_color(drv1_abbr)
-    drv2_color = plotting.driver_color(drv2_abbr)
+    drv1_color = plotting.get_driver_color(drv1_abbr, session)
+    drv2_color = plotting.get_driver_color(drv2_abbr, session)
     
     # Handle same colors
     if drv1_color == drv2_color:
