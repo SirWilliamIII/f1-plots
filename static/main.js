@@ -1,4 +1,135 @@
+
+// Add at the very top of main.js
 console.log("🎯 F1 Multi-Step Form Loading");
+
+// Resource loading tracker
+const ResourceLoader = {
+    loaded: {
+        dom: false,
+        fonts: false,
+        styles: false
+    },
+    
+    init() {
+        this.checkDOMReady();
+        this.checkFontsReady();
+        this.checkStylesReady();
+    },
+    
+    checkDOMReady() {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.loaded.dom = true;
+                this.tryInitialize();
+            });
+        } else {
+            this.loaded.dom = true;
+            this.tryInitialize();
+        }
+    },
+    
+    checkFontsReady() {
+        if (document.fonts) {
+            document.fonts.ready.then(() => {
+                this.loaded.fonts = true;
+                this.tryInitialize();
+            });
+        } else {
+            // Fallback for older browsers
+            setTimeout(() => {
+                this.loaded.fonts = true;
+                this.tryInitialize();
+            }, 100);
+        }
+    },
+    
+    checkStylesReady() {
+        // Wait for CSS to be fully loaded
+        const checkStyles = () => {
+            const testEl = document.createElement('div');
+            testEl.className = 'multi-step-form';
+            testEl.style.visibility = 'hidden';
+            document.body.appendChild(testEl);
+            
+            const computed = window.getComputedStyle(testEl);
+            const hasStyles = computed.borderRadius !== '0px';
+            
+            document.body.removeChild(testEl);
+            
+            if (hasStyles) {
+                this.loaded.styles = true;
+                this.tryInitialize();
+            } else {
+                setTimeout(checkStyles, 50);
+            }
+        };
+        
+        if (document.readyState === 'complete') {
+            checkStyles();
+        } else {
+            window.addEventListener('load', checkStyles);
+        }
+    },
+    
+    tryInitialize() {
+        if (this.loaded.dom && this.loaded.fonts && this.loaded.styles) {
+            console.log("✅ All resources loaded, initializing form");
+            initializeMultiStepForm();
+        }
+    }
+};
+
+// Your existing initialization code wrapped in a function
+function initializeMultiStepForm() {
+    console.log("🎯 DOM Loaded - Initializing Multi-Step Form");
+    
+    // Get all step contents with error checking
+    const step1Content = document.getElementById('step1-content');
+    const step2Content = document.getElementById('step2-content');
+    const step3Content = document.getElementById('step3-content');
+    
+    if (!step1Content || !step2Content || !step3Content) {
+        console.error("❌ Critical step elements missing, retrying in 100ms");
+        setTimeout(initializeMultiStepForm, 100);
+        return;
+    }
+    
+    // ... rest of your existing main.js code here ...
+    // (I'll show the key race condition fixes below)
+}
+
+// Enhanced AJAX with retry logic
+function fetchWithRetry(url, options, maxRetries = 3) {
+    return new Promise((resolve, reject) => {
+        const attemptFetch = (attempt) => {
+            fetch(url, options)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(resolve)
+                .catch(error => {
+                    console.warn(`⚠️ Fetch attempt ${attempt} failed:`, error.message);
+                    
+                    if (attempt < maxRetries) {
+                        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+                        console.log(`🔄 Retrying in ${delay}ms...`);
+                        setTimeout(() => attemptFetch(attempt + 1), delay);
+                    } else {
+                        reject(new Error(`Failed after ${maxRetries} attempts: ${error.message}`));
+                    }
+                });
+        };
+        
+        attemptFetch(1);
+    });
+}
+
+// Start the loading process
+ResourceLoader.init();
+
 
 document.addEventListener("DOMContentLoaded", function() {
     console.log("🎯 DOM Loaded - Initializing Multi-Step Form");

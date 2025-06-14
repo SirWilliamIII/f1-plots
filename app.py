@@ -1,18 +1,36 @@
 import os
+os.environ['MPLBACKEND'] = 'Agg'
+os.environ['MPLCONFIGDIR'] = '/tmp'
+
+import matplotlib
+matplotlib.use('Agg', force=True)
+import matplotlib.pyplot as plt
+plt.ioff()  # Turn off interactive mode
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import os
 import uuid
+import atexit
 from io import BytesIO
 from flask import Flask, render_template, request, send_file
 import fastf1
 from fastf1 import plotting
-import matplotlib
+
 import logging
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from utils import classify_moment
+
+# Import our new session manager and configuration
+from session_manager import (
+    SessionManager, 
+    get_races_cached, 
+    initialize_fastf1_cache
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -21,50 +39,33 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize FastF1 cache
-os.makedirs("fastf1_cache", exist_ok=True)
-fastf1.Cache.enable_cache("fastf1_cache")
-plotting.setup_mpl(color_scheme="fastf1", misc_mpl_mods=False)
+# Initialize FastF1 cache and session manager
+initialize_fastf1_cache("fastf1_cache")
 
-# Global variables
+# Initialize global session manager with optimized settings
+session_manager = SessionManager(
+    max_workers=2,           # 2 background threads for preloading
+    enable_preloading=False   # Enable preloading of popular sessions
+)
+
+# Global variables (keep for backward compatibility)
 last_plot_buf = None
-session_cache = {}
 
 def get_cached_session(year, race, session_type):
-    """Get or create a cached session to avoid double-loading"""
-    cache_key = f"{year}_{race}_{session_type}"
+    """
+    Get or create a cached session using the new session manager.
     
-    if cache_key not in session_cache:
-        session = fastf1.get_session(year, race, session_type)
-        
-        try:
-            # Load with optimizations - skip weather and messages for speed
-            session.load(
-                telemetry=True,      # Need this for plotting
-                weather=False,       # Skip weather data for speed
-                messages=False       # Skip race control messages for speed
-            )
-            session_cache[cache_key] = session
-            logging.info(f"✅ Cached new session: {cache_key}")
-        except Exception as e:
-            # Don't cache failed sessions
-            logging.error(f"❌ Failed to load session {cache_key}: {e}")
-            raise e
-    else:
-        logging.info(f"🚀 Using cached session: {cache_key}")
-    
-    return session_cache[cache_key]
+    This maintains backward compatibility with your existing code
+    while leveraging the improved session management.
+    """
+    return session_manager.get_session(year, race, session_type)
 
 @app.route("/get_races", methods=["POST"])
 def get_races():
-    """Get list of races for a given year"""
+    """Get list of races for a given year with improved caching"""
     year = int(request.form["year"])
     try:
-        df = fastf1.get_event_schedule(year, include_testing=False)
-        races = [
-            {"country": row["Country"], "event_name": row["EventName"]}
-            for _, row in df.iterrows()
-        ]
+        races = get_races_cached(year)
         logging.info(f"Returning {len(races)} races for year={year}")
         return {"races": races}
     except Exception as e:
@@ -226,6 +227,42 @@ def serve_plot():
     logging.warning("❌ No plot buffer available to serve")
     return "No plot available", 404
 
+# New debug endpoints for monitoring session manager performance
+@app.route("/cache_stats")
+def cache_stats():
+    """Debug endpoint to view session cache statistics"""
+    if session_manager:
+        stats = session_manager.get_cache_stats()
+        return {
+            "cache_stats": stats,
+            "message": "Session manager is running"
+        }
+    return {"error": "Session manager not initialized"}, 500
+
+@app.route("/clear_cache", methods=["POST"])
+def clear_cache():
+    """Administrative endpoint to clear session cache"""
+    if session_manager:
+        session_manager.clear_cache(keep_popular=True)
+        return {"message": "Cache cleared successfully"}
+    return {"error": "Session manager not available"}, 500
+
+# Initialize performance optimizations
+
+def initialize_data():
+    if not hasattr(app, '_initialized'):
+        app._initialized = True
+        logging.info("✅ Application initialized successfully")
+        
+        # Initialize performance optimizations
+        # Warm up matplotlib to reduce first-plot latency
+        fig, ax = plt.subplots(1, 1, figsize=(1, 1))
+        plt.close(fig)
+        
+        logging.info("🚀 Backend optimizations initialized")
+
+# Call it directly
+initialize_data()
 
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     """Generate telemetry comparison plot for two drivers"""
@@ -516,3 +553,16 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         drv2_abbr,
         _format(drv2_fastest["LapTime"]),
     )
+
+# Graceful shutdown handling
+def shutdown_handler():
+    """Ensure clean shutdown of session manager"""
+    if session_manager:
+        logging.info("🛑 Shutting down session manager...")
+        session_manager.shutdown()
+
+atexit.register(shutdown_handler)
+
+# For debugging - can be removed in production
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)

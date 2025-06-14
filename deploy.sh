@@ -1,7 +1,13 @@
 #!/bin/bash
+set -e  # Exit on any error
 
 # === CONFIG ===
 PROJECT_ID=$(gcloud config get-value project)
+if [ -z "$PROJECT_ID" ]; then
+    echo "❌ No GCP project configured. Run: gcloud config set project YOUR_PROJECT_ID"
+    exit 1
+fi
+
 IMAGE_NAME="f1-plots"
 REGION="us-central1"
 SERVICE_NAME="f1-plots"
@@ -26,7 +32,17 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
-  --port $PORT
+  --port $PORT \
+  --memory 2Gi \
+  --cpu 2 \
+  --timeout 900 \
+  --concurrency 80 \
+  --max-instances 10
+
+# === GET SERVICE URL ===
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
 
 # === DONE ===
 echo -e "\n✅ Deployment complete!"
+echo -e "🌐 Service URL: $SERVICE_URL"
+
