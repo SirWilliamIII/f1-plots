@@ -1,22 +1,25 @@
-FROM python:3.10-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PORT=8080
+FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy application code
 COPY . .
-RUN mkdir -p /tmp/fastf1_cache
 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV MATPLOTLIB_BACKEND=Agg
+
+# Expose port
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--worker-class", "sync", "--timeout", "120", "--keep-alive", "5", "--preload", "app:app"]
+# Run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "900", "--workers", "1", "app:app"]
