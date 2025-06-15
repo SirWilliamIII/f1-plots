@@ -1,104 +1,336 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>Comparison Result</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 Telemetry Comparison</title>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
       body {
-        background: #f7f7fa;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        color: white;
+        height: 100vh;
+        overflow: hidden;
       }
-      .result-box {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        min-height: 100vh;
-        padding: 2.5rem 1rem;
-      }
-      .result-header {
-        width: 100%;
-        max-width: 900px;
-        margin: 0 auto 1.5rem auto;
-        text-align: center;
-      }
-      .lap-times {
-        display: flex;
-        justify-content: center;
-        gap: 2.5rem;
-        font-size: 1.2rem;
-        font-family: "Orbitron", sans-serif;
-        margin-top: 0.7rem;
-      }
-      .lap-time {
-        background: #111;
-        color: #fff;
-        padding: 0.4em 1.1em;
-        border-radius: 10px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-      }
-      .plot-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        max-width: 900px;
-        margin: 1.5rem auto 1.5rem auto;
-        max-height: 70vh;
-        overflow: auto;
-        background: #222;
-        border-radius: 16px;
-        box-shadow: 0 6px 32px rgba(0,0,0,0.18);
-      }
-      .plot-container img {
-        display: block;
-        margin: 0 auto;
+
+      .container {
+        height: 100vh;
+        display: grid;
+        grid-template-rows: 50px 1fr; /* Tiny header, massive plot */
         max-width: 100%;
-        max-height: 65vh;
+      }
+
+      /* Ultra-compact header with everything in one line */
+      .header {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto 1fr;
+        align-items: center;
+        padding: 0 20px;
+        background: rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        gap: 20px;
+      }
+
+      .race-info {
+        font-size: 0.9rem;
+        font-weight: 600;
+        opacity: 0.9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .driver-time {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .driver-name {
+        font-weight: 700;
+        color: #ff6b6b;
+      }
+
+      .driver-name.driver2 {
+        color: #4ecdc4;
+      }
+
+      .lap-time {
+        font-family: "Courier New", monospace;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+
+      .vs-separator {
+        font-size: 0.8rem;
+        opacity: 0.6;
+        font-weight: 700;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      /* Plot Section - Takes up 95% of viewport */
+      .plot-section {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .plot-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .plot-container img {
+        max-width: 100%;
+        max-height: 100%;
         width: auto;
         height: auto;
-        border-radius: 14px;
-        background: #222;
         object-fit: contain;
+        border-radius: 4px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       }
-      .compare-another-btn {
-        margin: 2.5rem auto 0 auto;
-        display: inline-block;
-        background: #e10600;
-        color: #fff;
-        font-family: "Orbitron", sans-serif;
-        font-weight: 600;
-        padding: 0.85em 2.2em;
-        border-radius: 9px;
-        font-size: 1.05rem;
-        box-shadow: 0 3px 12px rgba(225,6,0,0.13);
-        text-decoration: none;
-        transition: background 0.22s;
+
+      /* Responsive Design */
+      @media (max-width: 1200px) {
+        .header {
+          grid-template-columns: 1fr auto 1fr;
+          gap: 15px;
+        }
+
+        .race-info {
+          font-size: 0.8rem;
+        }
+
+        .driver-time {
+          font-size: 0.8rem;
+        }
+
+        .actions {
+          justify-self: end;
+        }
+
+        /* Hide VS separator on smaller screens */
+        .vs-separator {
+          display: none;
+        }
       }
-      .compare-another-btn:hover {
-        background: #b60000;
+
+      @media (max-width: 768px) {
+        .container {
+          grid-template-rows: 45px 1fr;
+        }
+
+        .header {
+          padding: 0 15px;
+          grid-template-columns: 1fr auto;
+          gap: 10px;
+        }
+
+        .race-info {
+          font-size: 0.75rem;
+        }
+
+        .driver-times {
+          display: flex;
+          gap: 8px;
+          font-size: 0.75rem;
+        }
+
+        .actions {
+          gap: 6px;
+        }
+
+        .btn {
+          padding: 4px 8px;
+          font-size: 0.7rem;
+        }
+
+        .plot-section {
+          padding: 8px;
+        }
       }
-      @media (max-width: 700px) {
-        .result-header, .plot-container { max-width: 98vw; }
-        .plot-container img { max-height: 45vh; }
+
+      @media (max-width: 480px) {
+        .container {
+          grid-template-rows: 40px 1fr;
+        }
+
+        .header {
+          padding: 0 10px;
+          gap: 8px;
+        }
+
+        .race-info {
+          font-size: 0.7rem;
+        }
+
+        .driver-times {
+          font-size: 0.7rem;
+          gap: 6px;
+        }
+
+        .btn {
+          padding: 3px 6px;
+          font-size: 0.65rem;
+        }
+
+        .plot-section {
+          padding: 5px;
+        }
+      }
+
+      /* Loading state */
+      .plot-loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1rem;
+        opacity: 0.7;
+      }
+
+      /* Subtle background effect */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(
+            circle at 20% 80%,
+            rgba(255, 107, 107, 0.05) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            circle at 80% 20%,
+            rgba(78, 205, 196, 0.05) 0%,
+            transparent 50%
+          );
+        pointer-events: none;
+        z-index: -1;
       }
     </style>
   </head>
   <body>
-    <div class="result-box">
-      <div class="result-header">
-        <h2>Fastest Lap Telemetry Comparison</h2>
-        <div class="lap-times">
-          <span class="lap-time">{{ drv1_abbr }}: {{ drv1_lap_time }}</span>
-          <span class="lap-time">{{ drv2_abbr }}: {{ drv2_lap_time }}</span>
+    <div class="container">
+      <!-- Ultra-compact header - everything in one 50px line -->
+      <div class="header">
+        <div class="race-info">{{ race_title }} • {{ session_name }}</div>
+
+        <div class="driver-time">
+          <span class="driver-name">{{ drv1_abbr }}</span>
+          <span class="lap-time">{{ drv1_lap_time }}</span>
+        </div>
+
+        <div class="vs-separator">VS</div>
+
+        <div class="driver-time">
+          <span class="driver-name driver2">{{ drv2_abbr }}</span>
+          <span class="lap-time">{{ drv2_lap_time }}</span>
+        </div>
+
+        <div class="actions">
+          <a href="/" class="btn btn-primary">New</a>
+          <button onclick="window.print()" class="btn btn-secondary">
+            Print
+          </button>
         </div>
       </div>
-      <div class="plot-container">
-        <img src="{{ plot_path }}" alt="Telemetry Plot" />
+
+      <!-- Plot Section - Takes up ~95% of viewport -->
+      <div class="plot-section">
+        <div class="plot-container">
+          {% if plot_path %}
+          <img
+            src="{{ plot_path }}"
+            alt="Telemetry Comparison"
+            loading="lazy"
+          />
+          {% else %}
+          <div class="plot-loading">Loading telemetry data...</div>
+          {% endif %}
+        </div>
       </div>
-      <a class="compare-another-btn" href="/">&#8592; Compare another</a>
     </div>
+
+    <script>
+      // Keyboard shortcuts
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" || e.key === "Backspace") {
+          window.location.href = "/";
+        }
+        if (e.key === "p" || e.key === "P") {
+          window.print();
+        }
+      });
+
+      // Optional: Hide header on mouse inactivity for even more plot space
+      let headerTimeout;
+      const header = document.querySelector(".header");
+
+      function showHeader() {
+        header.style.transform = "translateY(0)";
+        clearTimeout(headerTimeout);
+        headerTimeout = setTimeout(() => {
+          // Uncomment next line if you want auto-hiding header
+          // header.style.transform = 'translateY(-100%)';
+        }, 3000);
+      }
+
+      document.addEventListener("mousemove", showHeader);
+      document.addEventListener("keydown", showHeader);
+    </script>
   </body>
 </html>

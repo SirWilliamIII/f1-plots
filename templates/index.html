@@ -2,88 +2,775 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>F1 Telemetry Comparison</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F1 Telemetry Analyzer</title>
+  <style>
+      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+      * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+      }
+
+      body {
+          font-family: 'Rajdhani', sans-serif;
+          background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 25%, #2d1b1b 50%, #1a1a1a 75%, #0a0a0a 100%);
+          color: white;
+          min-height: 100vh;
+          overflow-x: hidden;
+          position: relative;
+      }
+
+      /* Racing track background effect */
+      body::before {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background:
+              radial-gradient(circle at 20% 20%, rgba(255, 0, 0, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+              linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.02) 49%, rgba(255, 255, 255, 0.02) 51%, transparent 52%);
+          pointer-events: none;
+          z-index: -1;
+          animation: trackShift 20s ease-in-out infinite;
+      }
+
+      @keyframes trackShift {
+          0%, 100% { transform: translateX(0) rotate(0deg); }
+          50% { transform: translateX(10px) rotate(0.5deg); }
+      }
+
+      /* Racing stripes */
+      body::after {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: -50%;
+          width: 200%;
+          height: 100%;
+          background: repeating-linear-gradient(
+              45deg,
+              transparent,
+              transparent 100px,
+              rgba(255, 255, 255, 0.01) 101px,
+              rgba(255, 255, 255, 0.01) 102px
+          );
+          pointer-events: none;
+          z-index: -1;
+          animation: stripeMove 30s linear infinite;
+      }
+
+      @keyframes stripeMove {
+          0% { transform: translateX(-100px); }
+          100% { transform: translateX(100px); }
+      }
+
+      .container {
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          position: relative;
+          z-index: 1;
+      }
+
+      /* Epic F1 Header */
+      .header {
+          text-align: center;
+          margin-bottom: 50px;
+          position: relative;
+      }
+
+      .header::before {
+          content: '🏎️';
+          position: absolute;
+          left: -60px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 3rem;
+          animation: carMove 3s ease-in-out infinite;
+      }
+
+      .header::after {
+          content: '🏁';
+          position: absolute;
+          right: -60px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 3rem;
+          animation: flagWave 2s ease-in-out infinite;
+      }
+
+      @keyframes carMove {
+          0%, 100% { transform: translateY(-50%) translateX(0); }
+          50% { transform: translateY(-50%) translateX(10px); }
+      }
+
+      @keyframes flagWave {
+          0%, 100% { transform: translateY(-50%) rotate(0deg); }
+          50% { transform: translateY(-50%) rotate(5deg); }
+      }
+
+      .header h1 {
+          font-family: 'Orbitron', monospace;
+          font-size: 3.5rem;
+          font-weight: 900;
+          background: linear-gradient(45deg, #ff0000, #ff6b6b, #00ffff, #4ecdc4);
+          background-size: 300% 300%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: gradientShift 4s ease-in-out infinite;
+          text-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
+          margin-bottom: 10px;
+          letter-spacing: 2px;
+      }
+
+      @keyframes gradientShift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+      }
+
+      .header p {
+          font-size: 1.3rem;
+          font-weight: 300;
+          opacity: 0.9;
+          letter-spacing: 1px;
+      }
+
+      /* Racing Form Container */
+      .form-container {
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+          border: 2px solid transparent;
+          border-radius: 20px;
+          padding: 40px;
+          backdrop-filter: blur(10px);
+          position: relative;
+          overflow: hidden;
+          box-shadow:
+              0 20px 40px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      }
+
+      .form-container::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(45deg, rgba(255, 0, 0, 0.1), transparent, rgba(0, 255, 255, 0.1));
+          border-radius: 18px;
+          z-index: -1;
+          animation: borderGlow 3s ease-in-out infinite;
+      }
+
+      @keyframes borderGlow {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.7; }
+      }
+
+      .form-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 25px;
+          margin-bottom: 35px;
+      }
+
+      .form-group {
+          position: relative;
+          transition: all 0.3s ease;
+      }
+
+      /* Hidden state for driver sections */
+      .form-group.hidden {
+          display: none;
+      }
+
+      .form-group.fade-in {
+          animation: fadeInUp 0.6s ease-out;
+      }
+
+      @keyframes fadeInUp {
+          from {
+              opacity: 0;
+              transform: translateY(20px);
+          }
+          to {
+              opacity: 1;
+              transform: translateY(0);
+          }
+      }
+
+      .form-group label {
+          display: block;
+          font-size: 1.1rem;
+          font-weight: 600;
+          margin-bottom: 8px;
+          color: #ff6b6b;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          font-family: 'Orbitron', monospace;
+      }
+
+      .form-group select {
+          width: 100%;
+          padding: 15px 20px;
+          font-size: 1rem;
+          font-weight: 500;
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%);
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          color: white;
+          font-family: 'Rajdhani', sans-serif;
+          transition: all 0.3s ease;
+          cursor: pointer;
+      }
+
+      .form-group select:focus {
+          outline: none;
+          border-color: #ff6b6b;
+          box-shadow:
+              0 0 20px rgba(255, 107, 107, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          transform: translateY(-2px);
+      }
+
+      .form-group select:hover {
+          border-color: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+      }
+
+      .form-group select option {
+          background: #1a1a1a;
+          color: white;
+          padding: 10px;
+      }
+
+      /* Loading State for Driver Selection */
+      .drivers-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 2px dashed rgba(255, 107, 107, 0.3);
+          border-radius: 15px;
+          margin-top: 20px;
+          animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+      }
+
+      .loading-spinner {
+          width: 50px;
+          height: 50px;
+          border: 4px solid rgba(255, 255, 255, 0.1);
+          border-top: 4px solid #ff6b6b;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 15px;
+      }
+
+      @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+          font-family: 'Orbitron', monospace;
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #ff6b6b;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          text-align: center;
+      }
+
+      .loading-subtext {
+          font-size: 0.9rem;
+          opacity: 0.7;
+          margin-top: 5px;
+          text-align: center;
+      }
+
+      /* Driver Grid when loaded */
+      .drivers-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 25px;
+          margin-top: 20px;
+      }
+
+      /* Epic Submit Button */
+      .submit-container {
+          text-align: center;
+          margin-top: 40px;
+          transition: all 0.3s ease;
+      }
+
+      .submit-container.hidden {
+          opacity: 0;
+          pointer-events: none;
+      }
+
+      .btn-submit {
+          font-family: 'Orbitron', monospace;
+          font-size: 1.3rem;
+          font-weight: 700;
+          padding: 18px 50px;
+          background: linear-gradient(45deg, #ff0000, #ff6b6b, #ff0000);
+          background-size: 200% 200%;
+          border: none;
+          border-radius: 50px;
+          color: white;
+          cursor: pointer;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+          box-shadow:
+              0 10px 30px rgba(255, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      }
+
+      .btn-submit::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          transition: left 0.5s;
+      }
+
+      .btn-submit:hover::before {
+          left: 100%;
+      }
+
+      .btn-submit:hover {
+          transform: translateY(-3px);
+          box-shadow:
+              0 15px 40px rgba(255, 0, 0, 0.4),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          background-position: 100% 0;
+      }
+
+      .btn-submit:active {
+          transform: translateY(-1px);
+      }
+
+      .btn-submit:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+      }
+
+      /* Loading States */
+      .loading {
+          opacity: 0.7;
+          pointer-events: none;
+      }
+
+      .spinner {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          border-top-color: #ff6b6b;
+          animation: spin 1s ease-in-out infinite;
+          margin-left: 10px;
+      }
+
+      @keyframes spin {
+          to { transform: rotate(360deg); }
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+          .container {
+              padding: 20px 15px;
+          }
+
+          .header h1 {
+              font-size: 2.5rem;
+          }
+
+          .header::before,
+          .header::after {
+              display: none;
+          }
+
+          .form-container {
+              padding: 25px;
+          }
+
+          .form-grid {
+              grid-template-columns: 1fr;
+              gap: 20px;
+          }
+
+          .drivers-grid {
+              grid-template-columns: 1fr;
+          }
+
+          .btn-submit {
+              font-size: 1.1rem;
+              padding: 15px 40px;
+          }
+      }
+
+      @media (max-width: 480px) {
+          .header h1 {
+              font-size: 2rem;
+          }
+
+          .form-container {
+              padding: 20px;
+          }
+
+          .btn-submit {
+              font-size: 1rem;
+              padding: 12px 30px;
+          }
+      }
+
+      /* Success/Error Messages */
+      .message {
+          padding: 15px 20px;
+          border-radius: 10px;
+          margin-bottom: 20px;
+          font-weight: 600;
+          text-align: center;
+      }
+
+      .message.error {
+          background: rgba(255, 0, 0, 0.1);
+          border: 1px solid rgba(255, 0, 0, 0.3);
+          color: #ff6b6b;
+      }
+
+      .message.success {
+          background: rgba(0, 255, 0, 0.1);
+          border: 1px solid rgba(0, 255, 0, 0.3);
+          color: #4ecdc4;
+      }
+  </style>
 </head>
 <body>
-  <form class="f1-form-container" id="f1Form" method="POST" action="/">
-    <div class="f1-header">
-      <h1>F1 Telemetry Comparison</h1>
-      <p>Compare fastest laps between any two drivers in any recent Grand Prix.</p>
-    </div>
-    <nav class="f1-stepper" aria-label="Progress">
-      <div class="f1-step active" data-step="0">Year</div>
-      <div class="f1-step" data-step="1">Grand Prix</div>
-      <div class="f1-step" data-step="2">Drivers</div>
-    </nav>
-    <div class="f1-accordion">
-      <!-- Step 1: Year -->
-      <section class="f1-accordion-section" aria-expanded="true" id="step0">
-        <button type="button" class="f1-accordion-header" aria-controls="panel0" aria-expanded="true">
-          <span>Select Year</span>
-          <span class="arrow">&#9654;</span>
-        </button>
-        <div class="f1-accordion-panel" id="panel0">
-          <div class="f1-form-group">
-            <label for="year">Championship Year</label>
-            <select name="year" id="year" required>
-              <option value="">Select year...</option>
-              {% for year in years %}
-                <option value="{{ year }}">{{ year }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </section>
-      <!-- Step 2: Grand Prix -->
-      <section class="f1-accordion-section" aria-expanded="false" id="step1">
-        <button type="button" class="f1-accordion-header" aria-controls="panel1" aria-expanded="false" disabled>
-          <span>Select Grand Prix</span>
-          <span class="arrow">&#9654;</span>
-        </button>
-        <div class="f1-accordion-panel" id="panel1">
-          <div class="f1-form-group">
-            <label for="race">Grand Prix</label>
-            <select name="race" id="race" disabled required>
-              <option value="">Select Grand Prix...</option>
-            </select>
-          </div>
-        </div>
-      </section>
-      <!-- Step 3: Drivers -->
-      <section class="f1-accordion-section" aria-expanded="false" id="step2">
-        <button type="button" class="f1-accordion-header" aria-controls="panel2" aria-expanded="false" disabled>
-          <span>Select Drivers</span>
-          <span class="arrow">&#9654;</span>
-        </button>
-        <div class="f1-accordion-panel" id="panel2">
-          <div id="driver-loading-spinner">
-            <div class="spinner"></div>
-            <div style="color:#888; margin-top:0.5em;">Loading drivers...</div>
-          </div>
-          <div class="f1-form-group">
-            <label for="driver1">Driver 1</label>
-            <select name="driver1" id="driver1" disabled required>
-              <option value="">Select first driver...</option>
-            </select>
-          </div>
-          <div class="f1-form-group">
-            <label for="driver2">Driver 2</label>
-            <select name="driver2" id="driver2" disabled required>
-              <option value="">Select second driver...</option>
-            </select>
-          </div>
-        </div>
-      </section>
-    </div>
-    <div class="f1-summary" id="summary" style="display:none"></div>
-    <div class="f1-form-actions">
-      <button type="button" class="f1-btn" id="resetBtn" style="background:#e0e0e0;color:#333;" tabindex="-1">Reset</button>
-      <button type="submit" class="f1-btn" id="submitBtn" disabled>Compare Laps</button>
-    </div>
-  </form>
-  <script src="{{ url_for('static', filename='main.js') }}"></script>
+  <div class="container">
+      <div class="header">
+          <h1>F1 TELEMETRY</h1>
+          <p>ANALYZE • COMPARE • DOMINATE</p>
+      </div>
+
+      <div class="form-container">
+          <form method="POST" id="telemetryForm">
+              <div class="form-grid">
+                  <div class="form-group">
+                      <label for="year">SEASON</label>
+                      <select name="year" id="year" required>
+                          <option value="">Select Year</option>
+                          {% for year in years %}
+                              <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>{{ year }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+
+                  <div class="form-group">
+                      <label for="race">GRAND PRIX</label>
+                      <select name="race" id="race" required>
+                          <option value="">Select Race</option>
+                          {% for race in races %}
+                              <option value="{{ race }}" {% if selected_race == race %}selected{% endif %}>{{ race }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+
+                  <div class="form-group">
+                      <label for="session">SESSION</label>
+                      <select name="session" id="session" required>
+                          <option value="">Select Session</option>
+                          {% for session in sessions %}
+                              <option value="{{ session }}" {% if selected_session == session %}selected{% endif %}>{{ session }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+              </div>
+
+              <!-- Loading State for Drivers -->
+              <div id="driversLoading" class="drivers-loading" style="display: none;">
+                  <div class="loading-spinner"></div>
+                  <div class="loading-text">Loading Drivers</div>
+                  <div class="loading-subtext">Analyzing session data...</div>
+              </div>
+
+              <!-- Driver Selection Grid (Hidden Initially) -->
+              <div id="driversSection" class="drivers-grid" style="display: none;">
+                  <div class="form-group">
+                      <label for="driver1">DRIVER 1</label>
+                      <select name="driver1" id="driver1" required>
+                          <option value="">Select Driver</option>
+                      </select>
+                  </div>
+
+                  <div class="form-group">
+                      <label for="driver2">DRIVER 2</label>
+                      <select name="driver2" id="driver2" required>
+                          <option value="">Select Driver</option>
+                      </select>
+                  </div>
+              </div>
+
+              <div class="submit-container hidden" id="submitContainer">
+                  <button type="submit" class="btn-submit" id="submitBtn">
+                      <span id="submitText">ANALYZE TELEMETRY</span>
+                      <span id="loadingSpinner" class="spinner" style="display: none;"></span>
+                  </button>
+              </div>
+          </form>
+      </div>
+  </div>
+
+  <script>
+      const yearSel = document.getElementById('year');
+      const raceSel = document.getElementById('race');
+      const sessionSel = document.getElementById('session');
+      const driver1Sel = document.getElementById('driver1');
+      const driver2Sel = document.getElementById('driver2');
+      const submitBtn = document.getElementById('submitBtn');
+      const submitText = document.getElementById('submitText');
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      const driversLoading = document.getElementById('driversLoading');
+      const driversSection = document.getElementById('driversSection');
+      const submitContainer = document.getElementById('submitContainer');
+
+      // Track form state
+      let driversLoaded = false;
+
+      // Racing sound effects (optional - uncomment if you want audio)
+      // const playEngineSound = () => {
+      //     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7bllHgg2jdXzzn0vBSF1xe/eizEIHWq+8+OWT');
+      //     audio.play().catch(() => {}); // Ignore errors
+      // };
+
+      // Dynamic form interactions
+      yearSel.addEventListener('change', function() {
+          if (this.value) {
+              raceSel.innerHTML = '<option value="">Loading races...</option>';
+              hideDriversSection();
+              fetchRaces(this.value);
+          } else {
+              hideDriversSection();
+          }
+      });
+
+      raceSel.addEventListener('change', function() {
+          hideDriversSection();
+          checkIfShouldLoadDrivers();
+      });
+
+      sessionSel.addEventListener('change', function() {
+          hideDriversSection();
+          checkIfShouldLoadDrivers();
+      });
+
+      // Check if all required fields are filled to load drivers
+      function checkIfShouldLoadDrivers() {
+          if (yearSel.value && raceSel.value && sessionSel.value) {
+              showLoadingState();
+              fetchDrivers();
+          }
+      }
+
+      // Show loading state
+      function showLoadingState() {
+          driversLoading.style.display = 'flex';
+          driversSection.style.display = 'none';
+          submitContainer.classList.add('hidden');
+          driversLoaded = false;
+      }
+
+      // Hide drivers section
+      function hideDriversSection() {
+          driversLoading.style.display = 'none';
+          driversSection.style.display = 'none';
+          submitContainer.classList.add('hidden');
+          driversLoaded = false;
+      }
+
+      // Show drivers section with animation
+      function showDriversSection() {
+          driversLoading.style.display = 'none';
+          driversSection.style.display = 'grid';
+          driversSection.classList.add('fade-in');
+          submitContainer.classList.remove('hidden');
+          driversLoaded = true;
+      }
+
+      // Fetch races
+      function fetchRaces(year) {
+          fetch('/get_races', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `year=${year}`
+          })
+          .then(response => response.json())
+          .then(data => {
+              raceSel.innerHTML = '<option value="">Select Race</option>';
+              if (data.races) {
+                  data.races.forEach(race => {
+                      // Handle both string and object formats
+                      const raceName = typeof race === 'string' ? race : race.EventName || race.name || race;
+                      raceSel.innerHTML += `<option value="${raceName}">${raceName}</option>`;
+                  });
+              }
+          })
+          .catch(error => {
+              raceSel.innerHTML = '<option value="">Error loading races</option>';
+              console.error('Error:', error);
+          });
+      }
+
+      // Fetch drivers with enhanced loading messages
+      function fetchDrivers() {
+          const loadingMessages = [
+              'Loading session data...',
+              'Analyzing telemetry...',
+              'Fetching driver lineup...',
+              'Preparing comparison...'
+          ];
+
+          let messageIndex = 0;
+          const messageInterval = setInterval(() => {
+              const loadingSubtext = document.querySelector('.loading-subtext');
+              if (loadingSubtext) {
+                  loadingSubtext.textContent = loadingMessages[messageIndex];
+                  messageIndex = (messageIndex + 1) % loadingMessages.length;
+              }
+          }, 1000);
+
+          const formData = new FormData();
+          formData.append('year', yearSel.value);
+          formData.append('race', raceSel.value);
+          formData.append('session', sessionSel.value);
+
+          fetch('/get_drivers', {
+              method: 'POST',
+              body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+              clearInterval(messageInterval);
+
+              driver1Sel.innerHTML = '<option value="">Select Driver</option>';
+              driver2Sel.innerHTML = '<option value="">Select Driver</option>';
+
+              if (data.drivers && data.drivers.length > 0) {
+                  data.drivers.forEach(driver => {
+                      const option = `<option value="${driver.abbreviation}">${driver.broadcast_name}</option>`;
+                      driver1Sel.innerHTML += option;
+                      driver2Sel.innerHTML += option;
+                  });
+                  showDriversSection();
+              } else {
+                  // Show error state
+                  driversLoading.innerHTML = `
+                      <div style="color: #ff6b6b; text-align: center;">
+                          <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                          <div class="loading-text">No Drivers Available</div>
+                          <div class="loading-subtext">${data.error || 'This session may not have telemetry data'}</div>
+                      </div>
+                  `;
+              }
+          })
+          .catch(error => {
+              clearInterval(messageInterval);
+              driversLoading.innerHTML = `
+                  <div style="color: #ff6b6b; text-align: center;">
+                      <div style="font-size: 2rem; margin-bottom: 10px;">❌</div>
+                      <div class="loading-text">Loading Failed</div>
+                      <div class="loading-subtext">Please try again</div>
+                  </div>
+              `;
+              console.error('Error:', error);
+          });
+      }
+
+      // Form submission with epic loading state
+      document.getElementById('telemetryForm').addEventListener('submit', function(e) {
+          // Validation
+          if (!driversLoaded) {
+              e.preventDefault();
+              alert('🏎️ Please wait for drivers to load!');
+              return;
+          }
+
+          if (driver1Sel.value === driver2Sel.value && driver1Sel.value !== '') {
+              e.preventDefault();
+              alert('🏎️ Please select different drivers for comparison!');
+              return;
+          }
+
+          if (!driver1Sel.value || !driver2Sel.value) {
+              e.preventDefault();
+              alert('🏎️ Please select both drivers!');
+              return;
+          }
+
+          // Epic loading state
+          submitBtn.disabled = true;
+          submitBtn.classList.add('loading');
+          submitText.textContent = 'ANALYZING...';
+          loadingSpinner.style.display = 'inline-block';
+
+          // Add some racing flair
+          document.body.style.animation = 'trackShift 1s ease-in-out infinite';
+      });
+
+      // Add some interactive hover effects
+      document.querySelectorAll('select').forEach(select => {
+          select.addEventListener('focus', function() {
+              this.parentElement.style.transform = 'translateY(-2px)';
+          });
+
+          select.addEventListener('blur', function() {
+              this.parentElement.style.transform = 'translateY(0)';
+          });
+      });
+
+      // Keyboard shortcuts for power users
+      document.addEventListener('keydown', function(e) {
+          if (e.ctrlKey && e.key === 'Enter' && driversLoaded) {
+              document.getElementById('telemetryForm').submit();
+          }
+      });
+
+      // Easter egg - Konami code for extra racing effects
+      let konamiCode = [];
+      const konami = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65]; // Up Up Down Down Left Right Left Right B A
+
+      document.addEventListener('keydown', function(e) {
+          konamiCode.push(e.keyCode);
+          if (konamiCode.length > 10) konamiCode.shift();
+
+          if (konamiCode.join(',') === konami.join(',')) {
+              document.body.style.animation = 'trackShift 0.5s ease-in-out infinite, stripeMove 2s linear infinite';
+              setTimeout(() => {
+                  document.body.style.animation = '';
+              }, 3000);
+          }
+      });
+  </script>
 </body>
 </html>

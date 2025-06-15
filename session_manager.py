@@ -5,7 +5,6 @@ This module handles all FastF1 session caching, preloading, and optimization.
 Separates session management concerns from the main Flask application.
 """
 
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time
 from functools import lru_cache
@@ -276,28 +275,23 @@ class SessionManager:
 
 # Cache for race schedules (they don't change often)
 @lru_cache(maxsize=10)
-def get_races_cached(year: int) -> List[Dict[str, str]]:
+def get_races_cached(year: int) -> List[str]:
     """
     Cache race schedules since they don't change during the season.
-
-    Like keeping a season calendar handy - no need to re-fetch
-    the same race schedule multiple times.
 
     Args:
         year: F1 season year
 
     Returns:
-        List of race dictionaries with country and event_name
+        List of race names as strings
 
     Raises:
         Exception: If race schedule cannot be fetched
     """
     try:
         df = fastf1.get_event_schedule(year, include_testing=False)
-        races = [
-            {"country": row["Country"], "event_name": row["EventName"]}
-            for _, row in df.iterrows()
-        ]
+        # Return just the EventName as strings
+        races = [row["EventName"] for _, row in df.iterrows()]
 
         logging.info(f"📅 Cached {len(races)} races for {year}")
         return races
