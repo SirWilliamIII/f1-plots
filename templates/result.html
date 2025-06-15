@@ -2,14 +2,89 @@
 <html>
   <head>
     <title>Comparison Result</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='styles.css') }}"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
+    <style>
+      body {
+        background: #f7f7fa;
+      }
+      .result-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 100vh;
+        padding: 2.5rem 1rem;
+      }
+      .result-header {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto 1.5rem auto;
+        text-align: center;
+      }
+      .lap-times {
+        display: flex;
+        justify-content: center;
+        gap: 2.5rem;
+        font-size: 1.2rem;
+        font-family: "Orbitron", sans-serif;
+        margin-top: 0.7rem;
+      }
+      .lap-time {
+        background: #111;
+        color: #fff;
+        padding: 0.4em 1.1em;
+        border-radius: 10px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      }
+      .plot-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 900px;
+        margin: 1.5rem auto 1.5rem auto;
+        max-height: 70vh;
+        overflow: auto;
+        background: #222;
+        border-radius: 16px;
+        box-shadow: 0 6px 32px rgba(0,0,0,0.18);
+      }
+      .plot-container img {
+        display: block;
+        margin: 0 auto;
+        max-width: 100%;
+        max-height: 65vh;
+        width: auto;
+        height: auto;
+        border-radius: 14px;
+        background: #222;
+        object-fit: contain;
+      }
+      .compare-another-btn {
+        margin: 2.5rem auto 0 auto;
+        display: inline-block;
+        background: #e10600;
+        color: #fff;
+        font-family: "Orbitron", sans-serif;
+        font-weight: 600;
+        padding: 0.85em 2.2em;
+        border-radius: 9px;
+        font-size: 1.05rem;
+        box-shadow: 0 3px 12px rgba(225,6,0,0.13);
+        text-decoration: none;
+        transition: background 0.22s;
+      }
+      .compare-another-btn:hover {
+        background: #b60000;
+      }
+      @media (max-width: 700px) {
+        .result-header, .plot-container { max-width: 98vw; }
+        .plot-container img { max-height: 45vh; }
+      }
+    </style>
   </head>
   <body>
     <div class="result-box">

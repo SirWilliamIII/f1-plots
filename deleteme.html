@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Race Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto Condensed', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(255, 0, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 0, 0, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a0a0a 100%);
+            min-height: 100vh;
+            color: #ffffff;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #ff0000, transparent);
+            border-radius: 2px;
+        }
+
+        .header h1 {
+            font-size: 4rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #ffffff, #ff0000, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            position: relative;
+        }
+
+        .header .subtitle {
+            color: #a1a1aa;
+            font-size: 1.1rem;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .f1-grid {
+            position: absolute;
+            top: 0;
+            right: -50px;
+            width: 100px;
+            height: 100px;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 5px,
+                rgba(255, 0, 0, 0.1) 5px,
+                rgba(255, 0, 0, 0.1) 10px
+            );
+            opacity: 0.3;
+            animation: slideIn 1s ease-out 0.5s both;
+        }
+
+        .main-container {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .track-header {
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            padding: 2.5rem 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .track-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><path d="M20,50 Q50,20 100,50 Q150,80 180,50" stroke="rgba(255,255,255,0.1)" stroke-width="2" fill="none"/><circle cx="20" cy="50" r="3" fill="rgba(255,255,255,0.2)"/><circle cx="180" cy="50" r="3" fill="rgba(255,255,255,0.2)"/></svg>');
+            background-size: 400px 200px;
+            background-repeat: repeat-x;
+            animation: trackMove 10s linear infinite;
+        }
+
+        .track-header h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: -0.01em;
+            position: relative;
+            z-index: 2;
+        }
+
+        .track-header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1rem;
+            position: relative;
+            z-index: 2;
+            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+        }
+
+        .info-banner {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        .banner-icon {
+            font-size: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .banner-content {
+            flex: 1;
+        }
+
+        .banner-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .banner-text {
+            font-size: 0.95rem;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+
+        .banner-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .banner-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .form-body {
+            padding: 2.5rem 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            border: 2px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            transition: all 0.3s ease;
+        }
+
+        .section.active {
+            border-color: rgba(255, 0, 0, 0.3);
+            background: rgba(255, 0, 0, 0.05);
+            box-shadow: 0 4px 20px rgba(255, 0, 0, 0.1);
+        }
+
+        .section.active::before {
+            background: #ff0000;
+        }
+
+        .section.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .section.disabled .step-number {
+            background: rgba(255, 255, 255, 0.05);
+            color: #4a4a4a;
+        }
+
+        .section.disabled .section-title span {
+            color: #6b7280;
+        }
+
+        .section.disabled .section-icon {
+            color: #4a4a4a;
+        }
+
+        .section.collapsed .section-content {
+            max-height: 0;
+            padding: 0;
+        }
+
+        .section.collapsed .section-icon {
+            display: none;
+        }
+
+        .section.completed.collapsed .step-number::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.8rem;
+        }
+
+        .section.completed.collapsed .step-number {
+            font-size: 0;
+        }
+
+        .section-header {
+            padding: 1.5rem 2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            user-select: none;
+            position: relative;
+        }
+
+        .section-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .section.active .section-header {
+            background: rgba(255, 0, 0, 0.1);
+        }
+
+        .section.completed .section-header {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #a1a1aa;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .section.active .step-number {
+            background: #ff0000;
+            color: white;
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+
+        .section.completed .step-number {
+            background: #10b981;
+            color: white;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .section-icon {
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+            color: #71717a;
+            font-weight: bold;
+        }
+
+        .section.active .section-icon {
+            transform: rotate(45deg);
+            color: #ff0000;
+        }
+
+        .section.completed .section-icon {
+            color: #10b981;
+        }
+
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .section-content.expanded {
+            max-height: 400px;
+            padding: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 700;
+            color: #e4e4e7;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 1rem center;
+            background-repeat: no-repeat;
+            background-size: 1.25em 1.25em;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #ff0000;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 0 4px rgba(255, 0, 0, 0.1);
+        }
+
+        .form-select:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .form-select option {
+            background: #1a1a1a;
+            color: white;
+            padding: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .selected-value {
+            font-size: 0.875rem;
+            color: #10b981;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .racing-stripe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, 
+                #ff0000 0%, 
+                #ffffff 25%, 
+                #ff0000 50%, 
+                #ffffff 75%, 
+                #ff0000 100%);
+            animation: raceStripe 2s linear infinite;
+        }
+
+        .pitlane-section {
+            margin-top: 3rem;
+            padding: 2rem;
+            background: 
+                linear-gradient(135deg, rgba(255, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%),
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 20px,
+                    rgba(255, 255, 255, 0.02) 20px,
+                    rgba(255, 255, 255, 0.02) 40px
+                );
+            border: 2px solid rgba(255, 0, 0, 0.2);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pitlane-section::before {
+            content: 'PITLANE';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 0.7rem;
+            font-weight: 900;
+            color: rgba(255, 0, 0, 0.3);
+            letter-spacing: 0.2em;
+            transform: rotate(90deg);
+            transform-origin: center;
+        }
+
+        .summary {
+            margin-bottom: 2rem;
+        }
+
+        .summary-title {
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .summary-item {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 1.25rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #ff0000, #ffffff, #ff0000);
+        }
+
+        .summary-label {
+            font-size: 0.75rem;
+            color: #a1a1aa;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-value {
+            font-weight: 700;
+            color: #ffffff;
+            font-size: 1rem;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.6s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: white;
+            box-shadow: 0 8px 20px rgba(255, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(255, 0, 0, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #4a4a4a !important;
+            color: #9ca3af !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: none !important;
+            border-color: #4a4a4a !important;
+            opacity: 0.5 !important;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e4e4e7;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .checkered-flag {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 40px;
+            height: 30px;
+            background: repeating-linear-gradient(
+                45deg,
+                #000,
+                #000 5px,
+                #fff 5px,
+                #fff 10px
+            );
+            border: 2px solid #333;
+        }
+
+        @keyframes trackMove {
+            0% { background-position-x: 0; }
+            100% { background-position-x: 400px; }
+        }
+
+        @keyframes raceStripe {
+            0% { background-position-x: 0; }
+            100% { background-position-x: 40px; }
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 0.3; transform: translateX(0); }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header h1 { font-size: 2.5rem; }
+            .form-grid { grid-template-columns: 1fr; }
+            .summary-grid { grid-template-columns: 1fr; }
+            .form-body { padding: 1.5rem; }
+            .track-header { padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="f1-grid"></div>
+            <h1>F1 Telemetry Hub</h1>
+            <p class="subtitle">Professional Race Analysis Platform</p>
+        </div>
+
+        <div class="main-container">
+            <div class="racing-stripe"></div>
+            
+            <div class="track-header">
+                <h2>Race Configuration</h2>
+                <p>Select parameters for advanced telemetry analysis</p>
+                <div class="checkered-flag"></div>
+            </div>
+
+            <div class="info-banner" id="infoBanner">
+                <div class="banner-icon">⚡</div>
+                <div class="banner-content">
+                    <div class="banner-title">Live Data Loading</div>
+                    <div class="banner-text">
+                        Driver data loads dynamically from F1 Live Timing. 
+                        Initial telemetry fetch may take 30-60 seconds for race-accurate data.
+                    </div>
+                </div>
+                <button class="banner-close" onclick="dismissBanner()">×</button>
+            </div>
+
+            <div class="form-body">
+                <!-- Step 1: Season Selection -->
+                <div class="section active" id="seasonSection">
+                    <div class="section-header" onclick="toggleSection('season')">
+                        <div class="section-title">
+                            <div class="step-number">1</div>
+                            <span>Select Championship</span>
+                        </div>
+                        <div class="section-icon">×</div>
+                    </div>
+                    <div class="section-content expanded" id="seasonContent">
+                        <div class="form-group">
+                            <label class="form-label">F1 World Championship</label>
+                            <select class="form-select" id="yearSelect">
+                                
+                                <option value="">Choose a season 🏆</option>
+
+                                <!-- The user should be able to choose any  -->
+                                <option value="2024">2024 World Championship</option>
+                                <option value="2023">2023 World Championship</option>
+                                <option value="2022">2022 World Championship</option>
+                                <option value="2021">2021 World Championship</option>
+                                <option value="2020">2020 World Championship</option>
+                                <option value="2019">2019 World Championship</option>
+                                <option value="2018">2018 World Championship</option>
+                            </select>
+                            <div class="selected-value" id="yearValue" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Session Selection -->
+                <div class="section disabled" id="sessionSection">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <div class="step-number">2</div>
+                            <span>Select Session</span>
+                        </div>
+                        <div class="section-icon">+</div>
+                    </div>
+                    <div class="section-content" id="sessionContent">
+                        <div class="form-group">
+                            <label class="form-label">Track Session</label>
+                            <select class="form-select" id="sessionSelect" disabled>
+                                <option value="">Choose a track session...</option>
+                                <option value="Q">⚡ Qualifying Session</option>
+                                <option value="R">🏁 Grand Prix Race</option>
+                            </select>
+                            <div class="selected-value" id="sessionValue" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Circuit Selection -->
+                <div class="section disabled" id="grandPrixSection">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <div class="step-number">3</div>
+                            <span>Select Circuit</span>
+                        </div>
+                        <div class="section-icon">+</div>
+                    </div>
+                    <div class="section-content" id="grandPrixContent">
+                        <div class="form-group">
+                            <label class="form-label">Racing Circuit</label>
+                            <select class="form-select" id="grandPrixSelect">
+                                <option value="">Choose a racing circuit...</option>
+                                <option value="bahrain">🇧🇭 Bahrain International Circuit</option>
+                                <option value="saudi">🇸🇦 Jeddah Corniche Circuit</option>
+                                <option value="australia">🇦🇺 Albert Park Circuit</option>
+                                <option value="japan">🇯🇵 Suzuka Circuit</option>
+                                <option value="china">🇨🇳 Shanghai International Circuit</option>
+                                <option value="miami">🇺🇸 Miami International Autodrome</option>
+                                <option value="monaco">🇲🇨 Circuit de Monaco</option>
+                                <option value="canada">🇨🇦 Circuit Gilles-Villeneuve</option>
+                                <option value="spain">🇪🇸 Circuit de Barcelona-Catalunya</option>
+                                <option value="austria">🇦🇹 Red Bull Ring</option>
+                                <option value="britain">🇬🇧 Silverstone Circuit</option>
+                                <option value="hungary">🇭🇺 Hungaroring</option>
+                                <option value="belgium">🇧🇪 Circuit de Spa-Francorchamps</option>
+                                <option value="netherlands">🇳🇱 Circuit Zandvoort</option>
+                                <option value="italy">🇮🇹 Autodromo Nazionale Monza</option>
+                                <option value="azerbaijan">🇦🇿 Baku City Circuit</option>
+                                <option value="singapore">🇸🇬 Marina Bay Street Circuit</option>
+                                <option value="usa">🇺🇸 Circuit of The Americas</option>
+                                <option value="mexico">🇲🇽 Autódromo Hermanos Rodríguez</option>
+                                <option value="brazil">🇧🇷 Interlagos Circuit</option>
+                                <option value="qatar">🇶🇦 Lusail International Circuit</option>
+                                <option value="abu-dhabi">🇦🇪 Yas Marina Circuit</option>
+                            </select>
+                            <div class="selected-value" id="grandPrixValue" style="display: none;"></div>
+                        </div>
+                        
+                        <!-- Loading State for Driver Data -->
+                        <div class="driver-loading" id="driverLoading" style="display: none;">
+                            <div style="background: rgba(255, 0, 0, 0.1); border: 2px solid rgba(255, 0, 0, 0.3); border-radius: 12px; padding: 2rem; text-align: center; margin-top: 1.5rem;">
+                                <div style="width: 40px; height: 40px; border: 3px solid rgba(255, 0, 0, 0.3); border-top: 3px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                                <h4 style="color: #ffffff; font-weight: 700; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">⚡ Loading Driver Data</h4>
+                                <p style="color: #a1a1aa; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1rem;">Fetching race-specific driver lineup from F1 Live Timing system...</p>
+                                <div style="background: rgba(0, 0, 0, 0.4); padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255, 0, 0, 0.2);">
+                                    <p style="color: #e4e4e7; font-size: 0.875rem; font-weight: 600;">🏎️ Analyzing telemetry data for <span id="loadingCircuitName">selected circuit</span></p>
+                                    <p style="color: #71717a; font-size: 0.8rem; margin-top: 0.25rem;">This may take 30-60 seconds</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Driver Selection -->
+                <div class="section disabled" id="driverSection">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <div class="step-number">4</div>
+                            <span>Select Drivers</span>
+                        </div>
+                        <div class="section-icon">+</div>
+                    </div>
+                    <div class="section-content" id="driverContent">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Driver Bravo</label>
+                                <select class="form-select" id="driver2Select">
+                                    <option value="">Select second driver...</option>
+                                    <option value="VER">🇳🇱 Max Verstappen #1</option>
+                                    <option value="HAM">🇬🇧 Lewis Hamilton #44</option>
+                                    <option value="LEC">🇲🇨 Charles Leclerc #16</option>
+                                    <option value="RUS">🇬🇧 George Russell #63</option>
+                                    <option value="NOR">🇬🇧 Lando Norris #4</option>
+                                    <option value="PIA">🇦🇺 Oscar Piastri #81</option>
+                                    <option value="SAI">🇪🇸 Carlos Sainz #55</option>
+                                    <option value="PER">🇲🇽 Sergio Pérez #11</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="selected-value" id="driverValue" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Pitlane Section - Results and Actions -->
+                <div class="pitlane-section" id="actionSection">
+                    <div class="summary" id="summarySection" style="display: none;">
+                        <div class="summary-title">
+                            🏎️ Telemetry Analysis Setup
+                        </div>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <div class="summary-label">Championship</div>
+                                <div class="summary-value" id="summaryYear">-</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Racing Circuit</div>
+                                <div class="summary-value" id="summaryGP">-</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Track Session</div>
+                                <div class="summary-value" id="summarySession">-</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Driver Comparison</div>
+                                <div class="summary-value" id="summaryDrivers">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
+                        <button class="btn btn-secondary" onclick="resetForm()">
+                            🔄 Reset Configuration
+                        </button>
+                        <button class="btn btn-primary" id="generateBtn" onclick="generateAnalysis()" disabled>
+                            🏁 Generate Telemetry Analysis
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="results-container" id="resultsContainer" style="display: none;">
+                    <div style="background: rgba(0, 0, 0, 0.6); padding: 3rem 2rem; border-radius: 12px; border: 2px dashed rgba(255, 0, 0, 0.3); text-align: center;">
+                        <h3 style="color: #ffffff; font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; text-transform: uppercase;">📊 Analysis Results</h3>
+                        <p style="color: #a1a1aa; font-size: 1.1rem;">Your F1 telemetry analysis and driver comparison will appear here.</p>
+                        <div style="margin-top: 2rem; padding: 1rem; background: rgba(255, 0, 0, 0.1); border-radius: 8px; border: 1px solid rgba(255, 0, 0, 0.2);">
+                            <p style="color: #ffffff; font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">⚡ Live Telemetry Data Processing Complete</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(8px);">
+        <div style="background: rgba(0, 0, 0, 0.9); padding: 3rem; border-radius: 20px; text-align: center; border: 2px solid rgba(255, 0, 0, 0.3); max-width: 450px; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #ff0000, #ffffff, #ff0000); animation: raceStripe 1s linear infinite;"></div>
+            <div style="width: 64px; height: 64px; border: 4px solid rgba(255, 255, 255, 0.1); border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 2rem;"></div>
+            <h3 style="color: #ffffff; font-size: 1.3rem; font-weight: 800; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">🏎️ Processing Telemetry</h3>
+            <p style="color: #a1a1aa; font-size: 1rem; line-height: 1.5; margin-bottom: 1rem;">Analyzing F1 Live Timing data and generating performance visualizations...</p>
+            <p style="color: #71717a; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">⚡ Real-time data feed active</p>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div class="toast" id="successToast" style="position: fixed; top: 2rem; right: 2rem; background: linear-gradient(135deg, #10b981, #047857); color: white; padding: 1rem 1.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); transform: translateX(400px); transition: transform 0.3s ease; z-index: 1001; border: 2px solid rgba(255, 255, 255, 0.1);">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="font-size: 1.25rem;">🏁</div>
+            <div>
+                <div style="font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Telemetry Analysis Complete!</div>
+                <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.25rem;">Your F1 data visualization is ready.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            year: '',
+            grandPrix: '',
+            session: '',
+            driver1: '',
+            driver2: ''
+        };
+
+        function toggleSection(sectionName) {
+            // Only allow toggling if section is active or completed
+            const section = document.getElementById(sectionName + 'Section');
+            if (section.classList.contains('disabled')) return;
+            
+            const content = document.getElementById(sectionName + 'Content');
+            const icon = section.querySelector('.section-icon');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                icon.textContent = '+';
+            } else {
+                content.classList.add('expanded');
+                icon.textContent = '×';
+            }
+        }
+
+        function enableSection(sectionName) {
+            const section = document.getElementById(sectionName + 'Section');
+            const select = section.querySelector('select');
+            
+            section.classList.remove('disabled');
+            section.classList.add('active');
+            if (select) select.disabled = false;
+            
+            // Add click handler
+            const header = section.querySelector('.section-header');
+            header.onclick = () => toggleSection(sectionName);
+        }
+
+        function collapseAndCompleteSection(sectionName) {
+            const section = document.getElementById(sectionName + 'Section');
+            const content = document.getElementById(sectionName + 'Content');
+            const icon = section.querySelector('.section-icon');
+            
+            section.classList.remove('active');
+            section.classList.add('completed', 'collapsed');
+            content.classList.remove('expanded');
+            icon.textContent = '';
+            
+            // Remove click handler for collapsed sections
+            const header = section.querySelector('.section-header');
+            header.onclick = null;
+        }
+
+        function activateNextSection(currentSection) {
+            const sections = ['season', 'session', 'grandPrix', 'driver'];
+            const currentIndex = sections.indexOf(currentSection);
+            
+            // Collapse current section
+            collapseAndCompleteSection(currentSection);
+            
+            // Enable next section
+            if (currentIndex < sections.length - 1) {
+                const nextSection = sections[currentIndex + 1];
+                enableSection(nextSection);
+                
+                // Auto-expand next section
+                setTimeout(() => {
+                    toggleSection(nextSection);
+                }, 300);
+            }
+        }
+
+        function showDriverLoading(circuitName) {
+            document.getElementById('driverLoading').style.display = 'block';
+            document.getElementById('loadingCircuitName').textContent = circuitName;
+            
+            // Simulate driver data loading
+            setTimeout(() => {
+                document.getElementById('driverLoading').style.display = 'none';
+                
+                // Enable driver section and populate it
+                enableSection('driver');
+                const driverContent = document.getElementById('driverContent');
+                driverContent.innerHTML = `
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Driver Alpha</label>
+                            <select class="form-select" id="driver1Select">
+                                <option value="">Select first driver...</option>
+                                <option value="VER">🇳🇱 Max Verstappen #1</option>
+                                <option value="HAM">🇬🇧 Lewis Hamilton #44</option>
+                                <option value="LEC">🇲🇨 Charles Leclerc #16</option>
+                                <option value="RUS">🇬🇧 George Russell #63</option>
+                                <option value="NOR">🇬🇧 Lando Norris #4</option>
+                                <option value="PIA">🇦🇺 Oscar Piastri #81</option>
+                                <option value="SAI">🇪🇸 Carlos Sainz #55</option>
+                                <option value="PER">🇲🇽 Sergio Pérez #11</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Driver Bravo</label>
+                            <select class="form-select" id="driver2Select">
+                                <option value="">Select second driver...</option>
+                                <option value="VER">🇳🇱 Max Verstappen #1</option>
+                                <option value="HAM">🇬🇧 Lewis Hamilton #44</option>
+                                <option value="LEC">🇲🇨 Charles Leclerc #16</option>
+                                <option value="RUS">🇬🇧 George Russell #63</option>
+                                <option value="NOR">🇬🇧 Lando Norris #4</option>
+                                <option value="PIA">🇦🇺 Oscar Piastri #81</option>
+                                <option value="SAI">🇪🇸 Carlos Sainz #55</option>
+                                <option value="PER">🇲🇽 Sergio Pérez #11</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="selected-value" id="driverValue" style="display: none;"></div>
+                `;
+                
+                // Re-attach event listeners for new driver selects
+                attachDriverEventListeners();
+                
+                // Auto-expand driver section
+                setTimeout(() => {
+                    toggleSection('driver');
+                }, 300);
+            }, 2000); // Simulate 2 second delay for demo
+        }
+
+        function attachDriverEventListeners() {
+            const driver1Select = document.getElementById('driver1Select');
+            const driver2Select = document.getElementById('driver2Select');
+            
+            if (driver1Select) {
+                driver1Select.addEventListener('change', function() {
+                    state.driver1 = this.value;
+                    updateDriverDisplay();
+                    updateSummary();
+                });
+            }
+            
+            if (driver2Select) {
+                driver2Select.addEventListener('change', function() {
+                    state.driver2 = this.value;
+                    updateDriverDisplay();
+                    updateSummary();
+                });
+            }
+        }
+
+        function updateSummary() {
+            const allSelected = state.year && state.session && state.grandPrix && state.driver1 && state.driver2;
+            
+            if (allSelected) {
+                document.getElementById('summarySection').style.display = 'block';
+                
+                document.getElementById('summaryYear').textContent = state.year;
+                document.getElementById('summaryGP').textContent = getDisplayName('grandPrix', state.grandPrix);
+                document.getElementById('summarySession').textContent = getDisplayName('session', state.session);
+                document.getElementById('summaryDrivers').textContent = 
+                    `${getDisplayName('driver', state.driver1)} vs ${getDisplayName('driver', state.driver2)}`;
+                
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateBtn').style.opacity = '1';
+                document.getElementById('generateBtn').style.cursor = 'pointer';
+            } else {
+                document.getElementById('generateBtn').disabled = true;
+                document.getElementById('generateBtn').style.opacity = '0.5';
+                document.getElementById('generateBtn').style.cursor = 'not-allowed';
+                
+                // Hide summary if not all selected
+                if (!state.year || !state.session || !state.grandPrix) {
+                    document.getElementById('summarySection').style.display = 'none';
+                }
+            }
+        }
+
+        function getDisplayName(type, value) {
+            const maps = {
+                grandPrix: {
+                    'bahrain': 'Bahrain International Circuit',
+                    'saudi': 'Jeddah Corniche Circuit',
+                    'australia': 'Albert Park Circuit',
+                    'japan': 'Suzuka Circuit',
+                    'china': 'Shanghai International Circuit',
+                    'miami': 'Miami International Autodrome',
+                    'monaco': 'Circuit de Monaco',
+                    'canada': 'Circuit Gilles-Villeneuve',
+                    'spain': 'Circuit de Barcelona-Catalunya',
+                    'austria': 'Red Bull Ring',
+                    'britain': 'Silverstone Circuit',
+                    'hungary': 'Hungaroring',
+                    'belgium': 'Circuit de Spa-Francorchamps',
+                    'netherlands': 'Circuit Zandvoort',
+                    'italy': 'Autodromo Nazionale Monza',
+                    'azerbaijan': 'Baku City Circuit',
+                    'singapore': 'Marina Bay Street Circuit',
+                    'usa': 'Circuit of The Americas',
+                    'mexico': 'Autódromo Hermanos Rodríguez',
+                    'brazil': 'Interlagos Circuit',
+                    'qatar': 'Lusail International Circuit',
+                    'abu-dhabi': 'Yas Marina Circuit'
+                },
+                session: {
+                    'FP1': 'Free Practice 1',
+                    'FP2': 'Free Practice 2', 
+                    'FP3': 'Free Practice 3',
+                    'Q': 'Qualifying Session',
+                    'R': 'Grand Prix Race'
+                },
+                driver: {
+                    'VER': 'Verstappen #1',
+                    'HAM': 'Hamilton #44',
+                    'LEC': 'Leclerc #16',
+                    'RUS': 'Russell #63',
+                    'NOR': 'Norris #4',
+                    'PIA': 'Piastri #81',
+                    'SAI': 'Sainz #55',
+                    'PER': 'Pérez #11'
+                }
+            };
+            return maps[type][value] || value;
+        }
+
+        function dismissBanner() {
+            document.getElementById('infoBanner').style.display = 'none';
+        }
+
+        function updateDriverDisplay() {
+            if (state.driver1 && state.driver2) {
+                document.getElementById('driverValue').innerHTML = 
+                    `✓ <strong>${getDisplayName('driver', state.driver1)} vs ${getDisplayName('driver', state.driver2)}</strong>`;
+                document.getElementById('driverValue').style.display = 'block';
+                
+                // Mark driver section as completed
+                collapseAndCompleteSection('driver');
+            }
+        }
+
+        function resetForm() {
+            // Reset state
+            Object.keys(state).forEach(key => state[key] = '');
+            
+            // Reset all sections to initial state
+            document.querySelectorAll('.section').forEach((section, index) => {
+                section.classList.remove('active', 'completed', 'collapsed');
+                if (index === 0) {
+                    section.classList.add('active');
+                    // Re-expand first section
+                    const content = section.querySelector('.section-content');
+                    const icon = section.querySelector('.section-icon');
+                    content.classList.add('expanded');
+                    icon.textContent = '×';
+                    // Re-attach click handler
+                    const header = section.querySelector('.section-header');
+                    header.onclick = () => toggleSection('season');
+                } else {
+                    section.classList.add('disabled');
+                    // Disable selects
+                    const select = section.querySelector('select');
+                    if (select) select.disabled = true;
+                    // Remove click handlers
+                    const header = section.querySelector('.section-header');
+                    if (header) {
+                        header.onclick = null;
+                    }
+                    // Reset icons
+                    const icon = section.querySelector('.section-icon');
+                    if (icon) {
+                        icon.textContent = '+';
+                    }
+                }
+            });
+            
+            // Reset form elements
+            document.querySelectorAll('select').forEach(select => {
+                if (!select.disabled) select.value = '';
+            });
+            document.querySelectorAll('.selected-value').forEach(el => el.style.display = 'none');
+            
+            // Hide summary and results
+            document.getElementById('summarySection').style.display = 'none';
+            document.getElementById('resultsContainer').style.display = 'none';
+            document.getElementById('driverLoading').style.display = 'none';
+            
+            // Disable generate button with visual feedback
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = true;
+            generateBtn.style.opacity = '0.5';
+            generateBtn.style.cursor = 'not-allowed';
+        }
+
+        function generateAnalysis() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            
+            // Simulate API call
+            setTimeout(() => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('resultsContainer').style.display = 'block';
+                
+                // Show success toast
+                const toast = document.getElementById('successToast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+                
+                // Scroll to results
+                document.getElementById('resultsContainer').scrollIntoView({ 
+                    behavior: 'smooth' 
+                });
+            }, 3000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Season select listener
+            const yearSelect = document.getElementById('yearSelect');
+            if (yearSelect) {
+                yearSelect.addEventListener('change', function() {
+                    state.year = this.value;
+                    if (this.value) {
+                        document.getElementById('yearValue').innerHTML = `✓ <strong>${this.value} Championship selected</strong>`;
+                        document.getElementById('yearValue').style.display = 'block';
+                        activateNextSection('season');
+                    }
+                    updateSummary();
+                });
+            }
+
+            // Session select listener  
+            const sessionSelect = document.getElementById('sessionSelect');
+            if (sessionSelect) {
+                sessionSelect.addEventListener('change', function() {
+                    state.session = this.value;
+                    if (this.value) {
+                        const text = this.options[this.selectedIndex].text;
+                        document.getElementById('sessionValue').innerHTML = `✓ <strong>${text}</strong>`;
+                        document.getElementById('sessionValue').style.display = 'block';
+                        activateNextSection('session');
+                    }
+                    updateSummary();
+                });
+            }
+
+            // Grand Prix select listener
+            const grandPrixSelect = document.getElementById('grandPrixSelect');
+            if (grandPrixSelect) {
+                grandPrixSelect.addEventListener('change', function() {
+                    state.grandPrix = this.value;
+                    if (this.value) {
+                        const text = this.options[this.selectedIndex].text;
+                        document.getElementById('grandPrixValue').innerHTML = `✓ <strong>${text}</strong>`;
+                        document.getElementById('grandPrixValue').style.display = 'block';
+                        
+                        // Show loading state and circuit name
+                        const circuitName = getDisplayName('grandPrix', this.value);
+                        showDriverLoading(circuitName);
+                    }
+                    updateSummary();
+                });
+            }
+        });
+
+        // Auto-dismiss banner after 10 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                const banner = document.getElementById('infoBanner');
+                if (banner && banner.style.display !== 'none') {
+                    banner.style.opacity = '0';
+                    banner.style.transform = 'translateY(-20px)';
+                    setTimeout(() => banner.style.display = 'none', 300);
+                }
+            }, 10000);
+        });
+    </script>
+</body>
+</html>

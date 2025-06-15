@@ -1,15 +1,3 @@
-import os
-
-os.environ["MPLBACKEND"] = "Agg"
-os.environ["MPLCONFIGDIR"] = "/tmp"
-
-import matplotlib
-
-matplotlib.use("Agg", force=True)
-import matplotlib.pyplot as plt
-
-plt.ioff()  # Turn off interactive mode
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -21,13 +9,15 @@ from io import BytesIO
 from flask import Flask, render_template, request, send_file
 import fastf1
 from fastf1 import plotting
-
 import logging
-
 import numpy as np
 import pandas as pd
+from functools import wraps
+import signal
 from dotenv import load_dotenv
 from utils import classify_moment
+from flask_compress import Compress
+
 
 # Import our new session manager and configuration
 from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
@@ -39,8 +29,17 @@ load_dotenv()
 
 app = Flask(__name__)
 
+
+os.environ["MPLBACKEND"] = "Agg"
+os.environ["MPLCONFIGDIR"] = "/tmp"
+
+
+plt.ioff()  # Turn off interactive mode
+
+
+Compress(app)
 # Initialize FastF1 cache and session manager
-initialize_fastf1_cache('fastf1_cache')
+initialize_fastf1_cache("fastf1_cache")
 
 # Initialize the global session manager with optimized settings
 session_manager = SessionManager(
@@ -50,6 +49,26 @@ session_manager = SessionManager(
 
 # Global variables (keep for backward compatibility)
 last_plot_buf = None
+
+
+def timeout(seconds=30):
+    def decorator(func):
+        def handler(signum, frame):
+            raise TimeoutError("Request timed out")
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(seconds)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 def get_cached_session(year, race, session_type):
@@ -91,7 +110,8 @@ def get_drivers():
         # Check if session loaded properly
         if not hasattr(session, "drivers") or len(session.drivers) == 0:
             return {
-                "error": f"No driver data available for {year} {race} {session_name}"
+                "error": f"No driver data available for {year} {race} {session_name}",
+                "details": "This session may not have telemetry data available.",
             }, 400
 
         driver_options = [
@@ -103,6 +123,11 @@ def get_drivers():
         ]
         return {"drivers": driver_options}
 
+    except TimeoutError:
+        return {
+            "error": "Request timed out",
+            "details": "Loading driver data is taking longer than expected. Please try again.",
+        }, 504
     except Exception as e:
         error_msg = str(e)
         if (
@@ -110,12 +135,32 @@ def get_drivers():
             or "No data for this session" in error_msg
         ):
             return {
-                "error": f"Session data not available for {year} {race} {session_name}. Try a different year/race combination."
+                "error": f"Session data not available for {year} {race} {session_name}",
+                "details": "Try a different year/race combination. Not all sessions have telemetry data.",
             }, 400
         logging.error(f"[ERROR] Failed to fetch drivers: {e}")
-        return {"error": "Failed to load session data. Please try again."}, 500
+        return {"error": "Failed to load session data", "details": str(e)}, 500
 
 
+# 4. Add cache warming for popular sessions
+@app.before_request
+def warm_cache():
+    """Pre-load popular sessions into cache"""
+    popular_sessions = [
+        (2024, "British Grand Prix", "R"),
+        (2024, "Monaco Grand Prix", "Q"),
+        (2023, "Abu Dhabi Grand Prix", "R"),
+    ]
+
+    for year, race, session_type in popular_sessions:
+        try:
+            session_manager.get_session(year, race, session_type)
+            logging.info(f"✅ Pre-loaded {year} {race} {session_type}")
+        except Exception as e:
+            logging.warning(f"Could not pre-load {year} {race}: {e}")
+
+
+# 5. Add response compression
 @app.route("/", methods=["GET", "POST"])
 def index():
     global last_plot_buf
@@ -139,83 +184,42 @@ def index():
     selected_session = None
 
     if request.method == "POST":
-        # Handle driver selection (step 1 of form)
-        if (
-            "year" in request.form
-            and "race" in request.form
-            and "session" in request.form
-            and ("driver1" not in request.form or "driver2" not in request.form)
-        ):
-            selected_year = int(request.form["year"])
-            selected_race = request.form["race"]
-            selected_session = request.form["session"]
-            session_type = session_map[selected_session]
+        # Always assign variables from form at the top
+        selected_year = int(request.form.get("year"))
+        selected_race = request.form.get("race")
+        selected_session = request.form.get("session", "Race")
+        driver1 = request.form.get("driver1")
+        driver2 = request.form.get("driver2")
+        session_type = session_map.get(selected_session, selected_session)
 
-            try:
-                session = get_cached_session(selected_year, selected_race, session_type)
+        # Validate form data
+        if not (selected_year and selected_race and driver1 and driver2 and driver1 != driver2):
+            return render_template(
+                "error.html",
+                message="Missing or invalid form data."
+            )
 
-                driver_options = [
-                    {
-                        "abbreviation": session.get_driver(num)["Abbreviation"],
-                        "broadcast_name": session.get_driver(num)["BroadcastName"],
-                    }
-                    for num in session.drivers
-                ]
+        try:
+            session = get_cached_session(selected_year, selected_race, session_type)
+            plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
+                compare_fastest_laps(session, driver1, driver2)
+            )
+            last_plot_buf = plot_buf
 
-                return render_template(
-                    "index.html",
-                    years=years,
-                    races=races,
-                    sessions=sessions,
-                    driver_options=driver_options,
-                    selected_year=selected_year,
-                    selected_race=selected_race,
-                    selected_session=selected_session,
-                )
-            except Exception as e:
-                logging.error(f"[ERROR] Failed to load session: {e}")
-                return render_template(
-                    "error.html",
-                    message=f"Failed to load F1 session data for {selected_year} {selected_race} {selected_session}. Please try a different combination.",
-                )
-
-        # Handle plot generation (step 2 of form)
-        elif (
-            "year" in request.form
-            and "race" in request.form
-            and "session" in request.form
-            and "driver1" in request.form
-            and "driver2" in request.form
-        ):
-            selected_year = int(request.form["year"])
-            selected_race = request.form["race"]
-            selected_session = request.form["session"]
-            session_type = session_map[selected_session]
-            driver1 = request.form["driver1"]
-            driver2 = request.form["driver2"]
-
-            try:
-                session = get_cached_session(selected_year, selected_race, session_type)
-
-                plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
-                    compare_fastest_laps(session, driver1, driver2)
-                )
-                last_plot_buf = plot_buf
-
-                return render_template(
-                    "result.html",
-                    plot_path="/plot.png",
-                    drv1_abbr=drv1_abbr,
-                    drv1_lap_time=drv1_lap_time_str,
-                    drv2_abbr=drv2_abbr,
-                    drv2_lap_time=drv2_lap_time_str,
-                )
-            except Exception as e:
-                logging.error(f"[ERROR] Failed to generate plot: {e}")
-                return render_template(
-                    "error.html",
-                    message="Failed to generate telemetry comparison. Please try again.",
-                )
+            return render_template(
+                "result.html",
+                plot_path="/plot.png",
+                drv1_abbr=drv1_abbr,
+                drv1_lap_time=drv1_lap_time_str,
+                drv2_abbr=drv2_abbr,
+                drv2_lap_time=drv2_lap_time_str,
+            )
+        except Exception as e:
+            logging.error(f"[ERROR] Failed to generate plot: {e}")
+            return render_template(
+                "error.html",
+                message="Failed to generate telemetry comparison. Please try again.",
+            )
 
     # Default GET request
     return render_template(
@@ -228,6 +232,7 @@ def index():
         selected_race=selected_race,
         selected_session=selected_session,
     )
+
 
 
 @app.route("/plot.png")

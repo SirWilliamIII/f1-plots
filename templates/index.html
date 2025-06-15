@@ -1,129 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <!-- Google Tag Manager -->
-    <script>
-      (function (w, d, s, l, i) {
-        w[l] = w[l] || [];
-        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-        var f = d.getElementsByTagName(s)[0],
-          j = d.createElement(s),
-          dl = l != "dataLayer" ? "&l=" + l : "";
-        j.async = true;
-        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
-        f.parentNode.insertBefore(j, f);
-      })(window, document, "script", "dataLayer", "GTM-MM4NF82W");
-    </script>
-    <!-- End Google Tag Manager -->
-    <title>F1 Telemetry Compare</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='styles.css') }}"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript
-      ><iframe
-        src="https://www.googletagmanager.com/ns.html?id=GTM-MM4NF82W"
-        height="0"
-        width="0"
-        style="display: none; visibility: hidden"
-      ></iframe
-    ></noscript>
-
-    <body>
-  <div id="first-load-warning" style="display: none;">
-    <div class="banner-title"> Driver data loads dynamically based on your race selection. </div>
-          <div class="banner-text">Usually takes about 45 seconds to load drivers</div>    
-          <br />
-  </div>
-  <!-- ...rest of your content... -->
-</body>
-    <!-- End Google Tag Manager (noscript) -->
-    <div class="multi-step-form">
-      <!-- Step 1 -->
-      <div class="step-box" id="step1">
-        <h3 class="step-title" data-target="step1-content">Choose Year and Session</h3>
-        <div class="step-content" id="step1-content">
-          <form id="form-year-session">
-            <label for="year">Year:</label>
-            <select name="year" id="year" required>
-              {% for year in years %}
-              <option value="{{ year }}">{{ year }}</option>
-              {% endfor %}
-            </select>
-            <label for="session">Session:</label>
-            <select name="session" id="session" required>
-              {% for sesh in sessions %}
-              <option value="{{ sesh }}">{{ sesh }}</option>
-              {% endfor %}
-            </select>
-            <button type="button" id="btn-to-step2">
-              <span id="btn-to-step2-text">Choose Grand Prix</span>
-              <span id="btn-to-step2-loader" style="display: none; vertical-align: middle; margin-left: 10px">
-                <span class="loader"></span>
-                <span id="btn-to-step2-loading-msg" style="margin-left: 8px"></span>
-              </span>
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Step 2 -->
-      <div class="step-box" id="step2">
-        <h3 class="step-title" data-target="step2-content">Select Grand Prix</h3>
-        <div class="step-content collapsed" id="step2-content">
-          <form id="form-grand-prix" method="POST" action="/">
-            <input type="hidden" name="year" id="hidden-year" />
-            <input type="hidden" name="session" id="hidden-session" />
-            <label for="race">Race:</label>
-            <select name="race" id="race" required disabled>
-              <option value="">Select a country</option>
-            </select>
-            <button type="button" id="btn-to-step3" disabled>
-              <span id="btn-to-step3-text">Choose Drivers</span>
-              <span id="btn-to-step3-loader" style="display: none; vertical-align: middle; margin-left: 10px">
-                <span class="loader"></span>
-              </span>
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Step 3 -->
-      <div class="step-box" id="step3">
-        <h3 class="step-title" data-target="step3-content">Select Drivers to Compare</h3>
-        <div class="step-content collapsed" id="step3-content">
-          <form method="POST" action="/" id="form-drivers">
-            <input type="hidden" name="year" id="driver-year" />
-            <input type="hidden" name="session" id="driver-session" />
-            <input type="hidden" name="race" id="driver-race" />
-            <label for="driver1">Driver 1:</label>
-            <select name="driver1" id="driver1" required disabled>
-              <option value="">Select driver 1</option>
-            </select>
-            <label for="driver2">Driver 2:</label>
-            <select name="driver2" id="driver2" required disabled>
-              <option value="">Select driver 2</option>
-            </select>
-            <div>
-              <button type="submit" id="btn-generate-plots" disabled>
-                <span id="btn-generate-plots-text">Generate Plots</span>
-                <span id="btn-generate-plots-loader" style="display: none; vertical-align: middle; margin-left: 10px">
-                  <span class="loader"></span>
-                </span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F1 Telemetry Comparison</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <form class="f1-form-container" id="f1Form" method="POST" action="/">
+    <div class="f1-header">
+      <h1>F1 Telemetry Comparison</h1>
+      <p>Compare fastest laps between any two drivers in any recent Grand Prix.</p>
     </div>
-
-    <script src="{{ url_for('static', filename='main.js') }}"></script>
-  </body>
+    <nav class="f1-stepper" aria-label="Progress">
+      <div class="f1-step active" data-step="0">Year</div>
+      <div class="f1-step" data-step="1">Grand Prix</div>
+      <div class="f1-step" data-step="2">Drivers</div>
+    </nav>
+    <div class="f1-accordion">
+      <!-- Step 1: Year -->
+      <section class="f1-accordion-section" aria-expanded="true" id="step0">
+        <button type="button" class="f1-accordion-header" aria-controls="panel0" aria-expanded="true">
+          <span>Select Year</span>
+          <span class="arrow">&#9654;</span>
+        </button>
+        <div class="f1-accordion-panel" id="panel0">
+          <div class="f1-form-group">
+            <label for="year">Championship Year</label>
+            <select name="year" id="year" required>
+              <option value="">Select year...</option>
+              {% for year in years %}
+                <option value="{{ year }}">{{ year }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </section>
+      <!-- Step 2: Grand Prix -->
+      <section class="f1-accordion-section" aria-expanded="false" id="step1">
+        <button type="button" class="f1-accordion-header" aria-controls="panel1" aria-expanded="false" disabled>
+          <span>Select Grand Prix</span>
+          <span class="arrow">&#9654;</span>
+        </button>
+        <div class="f1-accordion-panel" id="panel1">
+          <div class="f1-form-group">
+            <label for="race">Grand Prix</label>
+            <select name="race" id="race" disabled required>
+              <option value="">Select Grand Prix...</option>
+            </select>
+          </div>
+        </div>
+      </section>
+      <!-- Step 3: Drivers -->
+      <section class="f1-accordion-section" aria-expanded="false" id="step2">
+        <button type="button" class="f1-accordion-header" aria-controls="panel2" aria-expanded="false" disabled>
+          <span>Select Drivers</span>
+          <span class="arrow">&#9654;</span>
+        </button>
+        <div class="f1-accordion-panel" id="panel2">
+          <div id="driver-loading-spinner">
+            <div class="spinner"></div>
+            <div style="color:#888; margin-top:0.5em;">Loading drivers...</div>
+          </div>
+          <div class="f1-form-group">
+            <label for="driver1">Driver 1</label>
+            <select name="driver1" id="driver1" disabled required>
+              <option value="">Select first driver...</option>
+            </select>
+          </div>
+          <div class="f1-form-group">
+            <label for="driver2">Driver 2</label>
+            <select name="driver2" id="driver2" disabled required>
+              <option value="">Select second driver...</option>
+            </select>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="f1-summary" id="summary" style="display:none"></div>
+    <div class="f1-form-actions">
+      <button type="button" class="f1-btn" id="resetBtn" style="background:#e0e0e0;color:#333;" tabindex="-1">Reset</button>
+      <button type="submit" class="f1-btn" id="submitBtn" disabled>Compare Laps</button>
+    </div>
+  </form>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
 </html>
