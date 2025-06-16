@@ -225,10 +225,10 @@ def index():
             try:
                 # Use session manager directly here too - FIXED
                 session = session_manager.get_session(selected_year, selected_race, session_type)
-                plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
+                plot_path, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
                     compare_fastest_laps(session, driver1, driver2)
                 )
-                last_plot_buf = plot_buf
+                last_plot_buf = plot_path
 
                 # 🔥 NEW: Create race title for header
                 race_title = f"{session.event.year} {session.event['EventName']}"
@@ -237,7 +237,7 @@ def index():
 
                 return render_template(
                     "result.html",
-                    plot_path="/plot.png",
+                    plot_path="/static/plot.png",
                     drv1_abbr=drv1_abbr,
                     drv1_lap_time=drv1_lap_time_str,
                     drv2_abbr=drv2_abbr,
@@ -266,11 +266,11 @@ def index():
         )
 
 
-
 @app.route("/plot.png")
 def serve_plot():
     global last_plot_buf
     if last_plot_buf:
+        last_plot_buf.seek(0)  # <-- Ensure buffer is rewound before sending
         logging.info("✅ Serving plot image")
         return send_file(last_plot_buf, mimetype="image/png")
     logging.warning("❌ No plot buffer available to serve")
@@ -724,16 +724,15 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     plt.tight_layout()
     # plt.subplots_adjust(top=0.93)  # ❌ Remove this line too
 
-    # Save to buffer
-    buf = BytesIO()
+    # Save to file instead of buffer
+    plot_path = "static/plot.png"
     plt.savefig(
-        buf, format="png", facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180
+        plot_path, format="png", facecolor=fig.get_facecolor(), bbox_inches="tight", dpi=180
     )
     plt.close()
-    buf.seek(0)
 
     return (
-        buf,
+        plot_path,
         drv1_abbr,
         _format(drv1_fastest["LapTime"]),
         drv2_abbr,
@@ -765,7 +764,17 @@ def metrics():
     """Prometheus metrics endpoint"""
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
-
 if __name__ == "__main__":
-    # Start the Flask app
-    app.run(debug=True, port=8181)
+    # Enable debug mode for local development
+    app.debug = True
+
+    # Set up logging for local development
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Run the app on localhost:5000
+    app.run(host='0.0.0.0', port=5555)
+
+
