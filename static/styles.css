@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap");
+
 :root {
   --primary: #e10600;
   --surface: #f7f7fa;
@@ -6,16 +8,16 @@
   --muted: #a0a4aa;
   --border: #e0e0e0;
   --radius: 12px;
-  --shadow: 0 2px 16px rgba(0,0,0,0.06);
-  --transition: 0.22s cubic-bezier(.44,.13,.48,.87);
+  --shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  --transition: 0.22s cubic-bezier(0.44, 0.13, 0.48, 0.87);
 }
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   background: var(--surface);
   color: var(--accent);
   min-height: 100vh;
   margin: 0;
-  display: flex;
+
   align-items: flex-start;
   justify-content: center;
 }
@@ -68,7 +70,7 @@ body {
   font-weight: 700;
 }
 .f1-step:not(:last-child)::after {
-  content: '';
+  content: "";
   position: absolute;
   right: -5px;
   top: 50%;
@@ -114,7 +116,8 @@ body {
 .f1-accordion-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.36s cubic-bezier(.44,.13,.48,.87), padding 0.2s;
+  transition: max-height 0.36s cubic-bezier(0.44, 0.13, 0.48, 0.87),
+    padding 0.2s;
   padding: 0 2rem;
   background: var(--surface-alt);
 }
@@ -150,7 +153,9 @@ body {
 .f1-form-actions {
   display: flex;
   gap: 1rem;
-  justify-content: flex-end;
+  justify-content: space-around;
+  flex-wrap: nowrap;
+  align-items: stretch;
   padding: 1.7rem 2rem 2rem 2rem;
 }
 .f1-btn {
@@ -163,7 +168,7 @@ body {
   border-radius: 7px;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 1px 8px rgba(225,6,0,0.08);
+  box-shadow: 0 1px 8px rgba(225, 6, 0, 0.08);
   transition: background var(--transition), box-shadow var(--transition);
 }
 .f1-btn:disabled {
@@ -174,7 +179,7 @@ body {
 }
 .f1-btn:hover:not(:disabled) {
   background: #b60000;
-  box-shadow: 0 3px 18px rgba(225,6,0,0.11);
+  box-shadow: 0 3px 18px rgba(225, 6, 0, 0.11);
 }
 .f1-summary {
   background: #f5f5fa;
@@ -183,7 +188,7 @@ body {
   padding: 1.1rem 1.2rem;
   font-size: 1rem;
   color: var(--accent);
-  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 .f1-summary strong {
   color: var(--primary);
@@ -199,7 +204,9 @@ body {
   margin: 0 auto;
 }
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 #driver-loading-spinner {
   display: none;
@@ -209,6 +216,785 @@ body {
   color: #888;
 }
 @media (max-width: 600px) {
-  .f1-form-container { width: 99vw; margin: 0.5rem 0; }
-  .f1-header, .f1-stepper, .f1-accordion-header, .f1-accordion-panel, .f1-form-actions, .f1-summary { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .f1-form-container {
+    width: 99vw;
+    margin: 0.5rem 0;
+  }
+  .f1-header,
+  .f1-stepper,
+  .f1-accordion-header,
+  .f1-accordion-panel,
+  .f1-form-actions,
+  .f1-summary {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+}
+
+/* =====================
+   INDEX PAGE STYLES
+   ===================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+#index-body {
+  font-family: "Rajdhani", sans-serif;
+  background: linear-gradient(
+    135deg,
+    #0a0a0a 0%,
+    #1a1a1a 25%,
+    #2d1b1b 50%,
+    #1a1a1a 75%,
+    #0a0a0a 100%
+  );
+  color: white;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Racing track background effect */
+#index-body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+      circle at 20% 20%,
+      rgba(255, 0, 0, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(0, 255, 255, 0.1) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 48%,
+      rgba(255, 255, 255, 0.02) 49%,
+      rgba(255, 255, 255, 0.02) 51%,
+      transparent 52%
+    );
+  pointer-events: none;
+  z-index: -1;
+  animation: trackShift 20s ease-in-out infinite;
+}
+
+@keyframes trackShift {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  50% {
+    transform: translateX(10px) rotate(0.5deg);
+  }
+}
+
+/* Racing stripes */
+#index-body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 100px,
+    rgba(255, 255, 255, 0.01) 101px,
+    rgba(255, 255, 255, 0.01) 102px
+  );
+  pointer-events: none;
+  z-index: -1;
+  animation: stripeMove 30s linear infinite;
+}
+
+@keyframes stripeMove {
+  0% {
+    transform: translateX(-100px);
+  }
+  100% {
+    transform: translateX(100px);
+  }
+}
+
+#index-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Epic F1 Header */
+#index-header {
+  text-align: center;
+  margin-bottom: 50px;
+  position: relative;
+}
+
+#index-header::before {
+  position: absolute;
+  left: -60px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 3rem;
+}
+
+#index-header::after {
+  position: absolute;
+  right: -60px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 3rem;
+}
+
+#index-header h1 {
+  font-family: "Orbitron", monospace;
+  font-size: 3.5rem;
+  font-weight: 900;
+  background: linear-gradient(45deg, #ff0000, #ff6b6b, #00ffff, #4ecdc4);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+}
+
+@keyframes gradientShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+#index-header p {
+  font-size: 1.3rem;
+  font-weight: 300;
+  opacity: 0.9;
+  letter-spacing: 1px;
+}
+
+/* Racing Form Container */
+#index-form-container {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border: 2px solid transparent;
+  border-radius: 20px;
+  padding: 40px;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#index-form-container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 0, 0, 0.1),
+    transparent,
+    rgba(0, 255, 255, 0.1)
+  );
+  border-radius: 18px;
+  z-index: -1;
+  animation: borderGlow 3s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 25px;
+  margin-bottom: 35px;
+}
+
+.form-group {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* Hidden state for driver sections */
+.form-group.hidden {
+  display: none;
+}
+
+.form-group.fade-in {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-group label {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ff6b6b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: "Orbitron", monospace;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 15px 20px;
+  font-size: 1rem;
+  font-weight: 500;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-family: "Rajdhani", sans-serif;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #ff6b6b;
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.form-group select:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.form-group select option {
+  background: #1a1a1a;
+  color: white;
+  padding: 10px;
+}
+
+/* Loading State for Driver Selection */
+.drivers-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px dashed rgba(255, 107, 107, 0.3);
+  border-radius: 15px;
+  margin-top: 20px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid #ff6b6b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-family: "Orbitron", monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ff6b6b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.loading-subtext {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-top: 5px;
+  text-align: center;
+}
+
+/* Driver Grid when loaded */
+.drivers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  margin-top: 20px;
+}
+
+/* Epic Submit Button */
+.submit-container {
+  text-align: center;
+  margin-top: 40px;
+  transition: all 0.3s ease;
+}
+
+.submit-container.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-submit {
+  font-family: "Orbitron", monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding: 18px 50px;
+  background: linear-gradient(45deg, #ff0000, #ff6b6b, #ff0000);
+  background-size: 200% 200%;
+  border: none;
+  border-radius: 50px;
+  color: white;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-submit::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-submit:hover::before {
+  left: 100%;
+}
+
+.btn-submit:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 40px rgba(255, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background-position: 100% 0;
+}
+
+.btn-submit:active {
+  transform: translateY(-1px);
+}
+
+.btn-submit:disabled {
+  background: linear-gradient(45deg, #2a2a2a, #444 80%, #222);
+  color: #b0b0b0;
+  opacity: 1;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: grayscale(0.5) brightness(0.7);
+}
+
+/* Loading States */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ff6b6b;
+  animation: spin 1s ease-in-out infinite;
+  margin-left: 10px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 15px;
+  }
+
+  .header h1 {
+    font-size: 2.5rem;
+  }
+
+  .header::before,
+  .header::after {
+    display: none;
+  }
+
+  .form-container {
+    padding: 25px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .drivers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-submit {
+    font-size: 1.1rem;
+    padding: 15px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  .form-container {
+    padding: 20px;
+  }
+
+  .btn-submit {
+    font-size: 1rem;
+    padding: 12px 30px;
+  }
+}
+
+/* Success/Error Messages */
+.message {
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.message.error {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  color: #ff6b6b;
+}
+
+.message.success {
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  color: #4ecdc4;
+}
+
+/* =====================
+   RESULT PAGE STYLES
+   ===================== */
+#result-body {
+  font-family: "Rajdhani", Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  color: white;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.container {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 50px 1fr; /* Tiny header, massive plot */
+  max-width: 100%;
+}
+
+/* Ultra-compact header with everything in one line */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 20px;
+  width: 100%;
+}
+
+.race-info {
+  font-size: 1.2rem;
+  font-weight: 600;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.driver-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.driver-name {
+  font-weight: 700;
+  color: #ff6b6b;
+}
+
+.driver-name.driver2 {
+  color: #4ecdc4;
+  font-weight: 700;
+}
+
+.lap-time {
+  font-family: "Courier New", monospace;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.vs-separator {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Plot Section - Takes up 95% of viewport */
+.plot-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.plot-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.plot-container img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .header {
+    grid-template-columns: 1fr auto 1fr;
+    gap: 15px;
+  }
+
+  .race-info {
+    font-size: 1rem;
+  }
+
+  .driver-time {
+    font-size: 0.9rem;
+  }
+
+  .actions {
+    justify-self: end;
+  }
+
+  /* Hide VS separator on smaller screens */
+  .vs-separator {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    grid-template-rows: 45px 1fr;
+  }
+
+  .header {
+    padding: 0 15px;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+
+  .race-info {
+    font-size: 0.75rem;
+  }
+
+  .driver-times {
+    display: flex;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .plot-section {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    grid-template-rows: 40px 1fr;
+  }
+
+  .header {
+    padding: 0 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .race-info {
+    display: flex;
+    font-size: 1rem;
+  }
+
+  .driver-times {
+    font-size: 0.79rem;
+    gap: 6px;
+  }
+
+  .btn {
+    padding: 3px 6px;
+    font-size: 0.65rem;
+  }
+
+  .plot-section {
+    padding: 5px;
+  }
+}
+
+/* Loading state */
+.plot-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+/* Subtle background effect */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+      circle at 20% 80%,
+      rgba(255, 107, 107, 0.05) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(78, 205, 196, 0.05) 0%,
+      transparent 50%
+    );
+  pointer-events: none;
+  z-index: -1;
 }
