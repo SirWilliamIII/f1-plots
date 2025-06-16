@@ -764,17 +764,6 @@ def metrics():
     """Prometheus metrics endpoint"""
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
-if __name__ == "__main__":
-    # Enable debug mode for local development
-    app.debug = True
 
-    # Set up logging for local development
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
-    # Run the app on localhost:5000
-    app.run(host='0.0.0.0', port=5555)
 
 
