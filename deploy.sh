@@ -11,7 +11,6 @@ fi
 IMAGE_NAME="f1-plots"
 REGION="us-central1"
 SERVICE_NAME="f1-plots"
-PORT=8080
 
 # === BUILD IMAGE FOR CLOUD RUN COMPATIBILITY ===
 echo -e "\n🔧 Building image (linux/amd64 for Cloud Run)..."
@@ -32,13 +31,11 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
-  --port $PORT \
   --memory 2Gi \
   --cpu 2 \
   --timeout 900 \
   --concurrency 80 \
-  --max-instances 10 \
-  --set-env-vars PORT=8080
+  --max-instances 10
 
 # === CHECK DEPLOYMENT STATUS ===
 echo -e "\n🔍 Checking service status..."
@@ -49,8 +46,9 @@ SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --form
 
 # === SHOW RECENT LOGS ===
 echo -e "\n📋 Recent logs:"
-gcloud logs read --service=$SERVICE_NAME --region=$REGION --limit=10
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE_NAME" --limit=10 --format="table(timestamp,severity,textPayload)"
 
 # === DONE ===
 echo -e "\n✅ Deployment complete!"
 echo -e "🌐 Service URL: $SERVICE_URL"
+

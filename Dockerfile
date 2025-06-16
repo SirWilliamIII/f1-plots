@@ -31,4 +31,4 @@ ENV MATPLOTLIB_BACKEND=Agg
 EXPOSE 8080
 
 # Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "900", "--workers", "1", "app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --timeout 900 --workers 1 app:app"]
