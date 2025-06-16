@@ -85,34 +85,23 @@
       }
 
       .header::before {
-          content: '🏎️';
           position: absolute;
           left: -60px;
           top: 50%;
           transform: translateY(-50%);
           font-size: 3rem;
-          animation: carMove 3s ease-in-out infinite;
+
       }
 
       .header::after {
-          content: '🏁';
           position: absolute;
           right: -60px;
           top: 50%;
           transform: translateY(-50%);
           font-size: 3rem;
-          animation: flagWave 2s ease-in-out infinite;
+
       }
 
-      @keyframes carMove {
-          0%, 100% { transform: translateY(-50%) translateX(0); }
-          50% { transform: translateY(-50%) translateX(10px); }
-      }
-
-      @keyframes flagWave {
-          0%, 100% { transform: translateY(-50%) rotate(0deg); }
-          50% { transform: translateY(-50%) rotate(5deg); }
-      }
 
       .header h1 {
           font-family: 'Orbitron', monospace;
@@ -370,9 +359,12 @@
       }
 
       .btn-submit:disabled {
-          opacity: 0.6;
+          background: linear-gradient(45deg, #2a2a2a, #444 80%, #222);
+          color: #b0b0b0;
+          opacity: 1;
           cursor: not-allowed;
-          transform: none;
+          box-shadow: none;
+          filter: grayscale(0.5) brightness(0.7);
       }
 
       /* Loading States */
@@ -533,7 +525,7 @@
               </div>
 
               <div class="submit-container hidden" id="submitContainer">
-                  <button type="submit" class="btn-submit" id="submitBtn">
+                  <button type="submit" class="btn-submit" id="submitBtn" disabled>
                       <span id="submitText">ANALYZE TELEMETRY</span>
                       <span id="loadingSpinner" class="spinner" style="display: none;"></span>
                   </button>
@@ -616,6 +608,7 @@
           driversSection.classList.add('fade-in');
           submitContainer.classList.remove('hidden');
           driversLoaded = true;
+          checkFormReady();
       }
 
       // Fetch races
@@ -734,8 +727,8 @@
           submitText.textContent = 'ANALYZING...';
           loadingSpinner.style.display = 'inline-block';
 
-          // Add some racing flair
-          document.body.style.animation = 'trackShift 1s ease-in-out infinite';
+          // Remove the racing flair animation on submit
+          // document.body.style.animation = 'trackShift 1s ease-in-out infinite';
       });
 
       // Add some interactive hover effects
@@ -770,6 +763,22 @@
                   document.body.style.animation = '';
               }, 3000);
           }
+      });
+
+      function checkFormReady() {
+          const year = yearSel.value;
+          const race = raceSel.value;
+          const session = sessionSel.value;
+          const driver1 = driver1Sel.value;
+          const driver2 = driver2Sel.value;
+          // All fields must be filled and drivers must be different
+          const ready = year && race && session && driver1 && driver2 && (driver1 !== driver2);
+          submitBtn.disabled = !ready;
+      }
+
+      // Add event listeners to all relevant selects
+      [yearSel, raceSel, sessionSel, driver1Sel, driver2Sel].forEach(sel => {
+          sel.addEventListener('change', checkFormReady);
       });
   </script>
 </body>
