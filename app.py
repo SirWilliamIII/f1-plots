@@ -6,7 +6,7 @@ import os
 import uuid
 import atexit
 from io import BytesIO
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 import fastf1
 from fastf1 import plotting
 import logging
@@ -17,11 +17,10 @@ import signal
 from dotenv import load_dotenv
 from utils import classify_moment
 from flask_compress import Compress
+from matplotlib.ticker import FuncFormatter
+from datetime import datetime
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
-# If flask_compress is not installed, install it using:
-# pip install Flask-Compress
-
-# Import our new session manager and configuration
 from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
 
 # Set up logging
@@ -53,6 +52,11 @@ session_manager = SessionManager(
 # Global variables (keep for backward compatibility)
 last_plot_buf = None
 
+# Prometheus metrics
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'])
+REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request latency', ['method', 'endpoint'])
+PLOT_GENERATION_TIME = Histogram('plot_generation_seconds', 'Time taken to generate plots')
+
 
 def timeout(seconds=30):
     def decorator(func):
@@ -77,84 +81,91 @@ def timeout(seconds=30):
 @app.route("/get_races", methods=["POST"])
 def get_races():
     """Get list of races for a given year with improved caching"""
-    year = int(request.form["year"])
-    try:
-        races = get_races_cached(year)
-        # Make sure we're returning race names as strings, not objects
-        race_names = []
-        for race in races:
-            if isinstance(race, str):
-                race_names.append(race)
-            elif hasattr(race, 'EventName'):
-                race_names.append(race.EventName)
-            elif hasattr(race, 'name'):
-                race_names.append(race.name)
-            else:
-                race_names.append(str(race))
+    REQUEST_COUNT.labels(method='POST', endpoint='/get_races', status='200').inc()
+    with REQUEST_LATENCY.labels(method='POST', endpoint='/get_races').time():
+        year = int(request.form["year"])
+        try:
+            races = get_races_cached(year)
+            # Make sure we're returning race names as strings, not objects
+            race_names = []
+            for race in races:
+                if isinstance(race, str):
+                    race_names.append(race)
+                elif hasattr(race, 'EventName'):
+                    race_names.append(race.EventName)
+                elif hasattr(race, 'name'):
+                    race_names.append(race.name)
+                else:
+                    race_names.append(str(race))
 
-        logging.info(f"Returning {len(race_names)} races for year={year}")
-        return {"races": race_names}
-    except Exception as e:
-        logging.error(f"[ERROR] Failed to fetch races: {e}")
-        return {"error": "Failed to fetch races"}, 500
+            logging.info(f"Returning {len(race_names)} races for year={year}")
+            return jsonify({'races': race_names})
+        except Exception as e:
+            REQUEST_COUNT.labels(method='POST', endpoint='/get_races', status='500').inc()
+            logging.error(f"[ERROR] Failed to fetch races: {e}")
+            return jsonify({'error': "Failed to fetch races"}), 500
 
 
 @app.route("/get_drivers", methods=["POST"])
 def get_drivers():
     """Returns a JSON list of drivers for the selected year, race, and session"""
-    try:
-        year = int(request.form["year"])
-        race = request.form["race"]
-        session_name = request.form["session"]
+    REQUEST_COUNT.labels(method='POST', endpoint='/get_drivers', status='200').inc()
+    with REQUEST_LATENCY.labels(method='POST', endpoint='/get_drivers').time():
+        try:
+            year = int(request.form["year"])
+            race = request.form["race"]
+            session_name = request.form["session"]
 
-        # Add debug logging
-        logging.info(f"🔍 Loading drivers for: {year} - {race} - {session_name}")
+            # Add debug logging
+            logging.info(f"🔍 Loading drivers for: {year} - {race} - {session_name}")
 
-        session_map = {"Qualifying": "Q", "Race": "R"}
-        session_type = session_map.get(session_name, session_name)
+            session_map = {"Qualifying": "Q", "Race": "R"}
+            session_type = session_map.get(session_name, session_name)
 
-        # Use session manager directly - FIXED
-        session = session_manager.get_session(year, race, session_type)
+            # Use session manager directly - FIXED
+            session = session_manager.get_session(year, race, session_type)
 
-        # Add more debug logging
-        logging.info(f"🔍 Session loaded, drivers available: {len(session.drivers) if hasattr(session, 'drivers') else 'None'}")
+            # Add more debug logging
+            logging.info(f"🔍 Session loaded, drivers available: {len(session.drivers) if hasattr(session, 'drivers') else 'None'}")
 
-        # Check if session loaded properly
-        if not hasattr(session, "drivers") or len(session.drivers) == 0:
-            logging.warning(f"⚠️ No drivers found for {year} {race} {session_name}")
-            return {
-                "error": f"No driver data available for {year} {race} {session_name}",
-                "details": "This session may not have telemetry data available.",
-            }, 400
+            # Check if session loaded properly
+            if not hasattr(session, "drivers") or len(session.drivers) == 0:
+                logging.warning(f"⚠️ No drivers found for {year} {race} {session_name}")
+                return jsonify({
+                    "error": f"No driver data available for {year} {race} {session_name}",
+                    "details": "This session may not have telemetry data available.",
+                }), 400
 
-        driver_options = [
-            {
-                "abbreviation": session.get_driver(num)["Abbreviation"],
-                "broadcast_name": session.get_driver(num)["BroadcastName"],
-            }
-            for num in session.drivers
-        ]
+            driver_options = [
+                {
+                    "abbreviation": session.get_driver(num)["Abbreviation"],
+                    "broadcast_name": session.get_driver(num)["BroadcastName"],
+                }
+                for num in session.drivers
+            ]
 
-        logging.info(f"✅ Returning {len(driver_options)} drivers")
-        return {"drivers": driver_options}
+            logging.info(f"✅ Returning {len(driver_options)} drivers")
+            return jsonify({'drivers': driver_options})
 
-    except TimeoutError:
-        return {
-            "error": "Request timed out",
-            "details": "Loading driver data is taking longer than expected. Please try again.",
-        }, 504
-    except Exception as e:
-        error_msg = str(e)
-        if (
-            "SessionNotAvailableError" in error_msg
-            or "No data for this session" in error_msg
-        ):
-            return {
-                "error": f"Session data not available for {year} {race} {session_name}",
-                "details": "Try a different year/race combination. Not all sessions have telemetry data.",
-            }, 400
-        logging.error(f"[ERROR] Failed to fetch drivers: {e}")
-        return {"error": "Failed to load session data", "details": str(e)}, 500
+        except TimeoutError:
+            REQUEST_COUNT.labels(method='POST', endpoint='/get_drivers', status='504').inc()
+            return jsonify({
+                "error": "Request timed out",
+                "details": "Loading driver data is taking longer than expected. Please try again.",
+            }), 504
+        except Exception as e:
+            REQUEST_COUNT.labels(method='POST', endpoint='/get_drivers', status='500').inc()
+            error_msg = str(e)
+            if (
+                "SessionNotAvailableError" in error_msg
+                or "No data for this session" in error_msg
+            ):
+                return jsonify({
+                    "error": f"Session data not available for {year} {race} {session_name}",
+                    "details": "Try a different year/race combination. Not all sessions have telemetry data.",
+                }), 400
+            logging.error(f"[ERROR] Failed to fetch drivers: {e}")
+            return jsonify({"error": "Failed to load session data", "details": str(e)}), 500
 
 
 # 4. Add cache warming for popular sessions
@@ -178,80 +189,82 @@ def warm_cache():
 # 5. Add response compression
 @app.route("/", methods=["GET", "POST"])
 def index():
-    global last_plot_buf
-    years = list(range(2020, 2026))
-    sessions = ["Qualifying", "Race"]  # Available options
-    session_map = {"Qualifying": "Q", "Race": "R"}
+    REQUEST_COUNT.labels(method='GET', endpoint='/', status='200').inc()
+    with REQUEST_LATENCY.labels(method='GET', endpoint='/').time():
+        global last_plot_buf
+        years = list(range(2020, 2026))
+        sessions = ["Qualifying", "Race"]  # Available options
+        session_map = {"Qualifying": "Q", "Race": "R"}
 
-    # Get races for default year (2023) for initial page load - FIXED
-    try:
-        races = get_races_cached(2023)  # Use the same cached function
-    except:
-        races = []
-
-    drivers = None
-    selected_year = None
-    selected_race = None
-    selected_session = None  # This gets set from form
-
-    if request.method == "POST":
-        # Always assign variables from form at the top
-        selected_year = int(request.form.get("year"))
-        selected_race = request.form.get("race")
-        selected_session = request.form.get("session", "Qualifying")  # ← Change to "Qualifying"
-        driver1 = request.form.get("driver1")
-        driver2 = request.form.get("driver2")
-        session_type = session_map.get(selected_session, selected_session)
-
-        # Validate form data
-        if not (selected_year and selected_race and driver1 and driver2 and driver1 != driver2):
-            return render_template(
-                "error.html",
-                message="Missing or invalid form data."
-            )
-
+        # Get races for default year (2023) for initial page load - FIXED
         try:
-            # Use session manager directly here too - FIXED
-            session = session_manager.get_session(selected_year, selected_race, session_type)
-            plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
-                compare_fastest_laps(session, driver1, driver2)
-            )
-            last_plot_buf = plot_buf
+            races = get_races_cached(2023)  # Use the same cached function
+        except:
+            races = []
 
-            # 🔥 NEW: Create race title for header
-            race_title = f"{session.event.year} {session.event['EventName']}"
-            driver_comparison = f"{drv1_abbr} vs {drv2_abbr}"
-            session_name = "Qualifying" if session_type == "Q" else "Race"
+        drivers = None
+        selected_year = None
+        selected_race = None
+        selected_session = None  # This gets set from form
 
-            return render_template(
-                "result.html",
-                plot_path="/plot.png",
-                drv1_abbr=drv1_abbr,
-                drv1_lap_time=drv1_lap_time_str,
-                drv2_abbr=drv2_abbr,
-                drv2_lap_time=drv2_lap_time_str,
-                race_title=race_title,           # ✅ NEW
-                driver_comparison=driver_comparison,  # ✅ NEW
-                session_name=session_name        # ✅ NEW
-            )
-        except Exception as e:
-            logging.error(f"[ERROR] Failed to generate plot: {e}")
-            return render_template(
-                "error.html",
-                message="Failed to generate telemetry comparison. Please try again.",
-            )
+        if request.method == "POST":
+            # Always assign variables from form at the top
+            selected_year = int(request.form.get("year"))
+            selected_race = request.form.get("race")
+            selected_session = request.form.get("session", "Qualifying")  # ← Change to "Qualifying"
+            driver1 = request.form.get("driver1")
+            driver2 = request.form.get("driver2")
+            session_type = session_map.get(selected_session, selected_session)
 
-    # Default GET request
-    return render_template(
-        "index.html",
-        years=years,
-        races=races,
-        sessions=sessions,
-        drivers=drivers,
-        selected_year=selected_year,
-        selected_race=selected_race,
-        selected_session=selected_session,
-    )
+            # Validate form data
+            if not (selected_year and selected_race and driver1 and driver2 and driver1 != driver2):
+                return render_template(
+                    "error.html",
+                    message="Missing or invalid form data."
+                )
+
+            try:
+                # Use session manager directly here too - FIXED
+                session = session_manager.get_session(selected_year, selected_race, session_type)
+                plot_buf, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str = (
+                    compare_fastest_laps(session, driver1, driver2)
+                )
+                last_plot_buf = plot_buf
+
+                # 🔥 NEW: Create race title for header
+                race_title = f"{session.event.year} {session.event['EventName']}"
+                driver_comparison = f"{drv1_abbr} vs {drv2_abbr}"
+                session_name = "Qualifying" if session_type == "Q" else "Race"
+
+                return render_template(
+                    "result.html",
+                    plot_path="/plot.png",
+                    drv1_abbr=drv1_abbr,
+                    drv1_lap_time=drv1_lap_time_str,
+                    drv2_abbr=drv2_abbr,
+                    drv2_lap_time=drv2_lap_time_str,
+                    race_title=race_title,           # ✅ NEW
+                    driver_comparison=driver_comparison,  # ✅ NEW
+                    session_name=session_name        # ✅ NEW
+                )
+            except Exception as e:
+                logging.error(f"[ERROR] Failed to generate plot: {e}")
+                return render_template(
+                    "error.html",
+                    message="Failed to generate telemetry comparison. Please try again.",
+                )
+
+        # Default GET request
+        return render_template(
+            "index.html",
+            years=years,
+            races=races,
+            sessions=sessions,
+            drivers=drivers,
+            selected_year=selected_year,
+            selected_race=selected_race,
+            selected_session=selected_session,
+        )
 
 
 
@@ -681,7 +694,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             )
 
     # Format x-axis as stopwatch
-    from matplotlib.ticker import FuncFormatter
+
 
     def stopwatch_fmt(x, pos):
         mins = int(x // 60)
@@ -738,4 +751,18 @@ def shutdown_handler():
 
 
 atexit.register(shutdown_handler)
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring instance status"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'instance_id': id(app)  # Unique identifier for this instance
+    })
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus metrics endpoint"""
+    return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 

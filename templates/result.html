@@ -28,12 +28,9 @@
 
       /* Ultra-compact header with everything in one line */
       .header {
-        display: grid;
-        grid-template-columns: 1fr auto auto auto 1fr;
+        display: flex;
         align-items: center;
-        padding: 0 20px;
-        background: rgba(0, 0, 0, 0.3);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        justify-content: space-between;
         gap: 20px;
       }
 
@@ -266,26 +263,31 @@
   <body>
     <div class="container">
       <!-- Ultra-compact header - everything in one 50px line -->
-      <div class="header">
-        <div class="race-info">{{ race_title }} • {{ session_name }}</div>
-
-        <div class="driver-time">
-          <span class="driver-name">{{ drv1_abbr }}</span>
-          <span class="lap-time">{{ drv1_lap_time }}</span>
+      <div
+        class="header"
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 20px">
+          <div class="race-info" style="margin-bottom: 0">
+            {{ race_title }} • {{ session_name }}
+          </div>
+          <div class="driver-time">
+            <span class="driver-name">{{ drv1_abbr }}</span>
+            <span class="lap-time">{{ drv1_lap_time }}</span>
+          </div>
+          <div class="vs-separator">VS</div>
+          <div class="driver-time">
+            <span class="driver-name driver2">{{ drv2_abbr }}</span>
+            <span class="lap-time">{{ drv2_lap_time }}</span>
+          </div>
         </div>
-
-        <div class="vs-separator">VS</div>
-
-        <div class="driver-time">
-          <span class="driver-name driver2">{{ drv2_abbr }}</span>
-          <span class="lap-time">{{ drv2_lap_time }}</span>
-        </div>
-
-        <div class="actions">
-          <a href="/" class="btn btn-primary">New</a>
-          <button onclick="window.print()" class="btn btn-secondary">
-            Print
-          </button>
+        <div class="actions" style="margin-left: auto">
+          <a href="/" class="btn btn-primary">Generate New Plot</a>
         </div>
       </div>
 
