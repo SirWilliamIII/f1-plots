@@ -232,7 +232,7 @@ def index():
 
                 # 🔥 NEW: Create race title for header
                 race_title = f"{session.event.year} {session.event['EventName']}"
-                driver_comparison = f"{drv1_abbr} vs {drv2_abbr}"
+                driver_comparison = f"{drv1_abbr}  {drv2_abbr}"
                 session_name = "Qualifying" if session_type == "Q" else "Race"
 
                 return render_template(
@@ -719,7 +719,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         return f"{int(total_sec // 60)}:{total_sec % 60:06.3f}"
 
     # Add title
-    sup_title = f"{drv1_abbr} vs {drv2_abbr} – {session.event['EventName']} {session.event.year} {session.name}"
+    sup_title = f"{drv1_abbr} {drv2_abbr} – {session.event['EventName']} {session.event.year} {session.name}"
     # plt.suptitle(sup_title, **title_font)  # ❌ Remove this line
     plt.tight_layout()
     # plt.subplots_adjust(top=0.93)  # ❌ Remove this line too
@@ -765,3 +765,7 @@ def metrics():
     """Prometheus metrics endpoint"""
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
+
+if __name__ == "__main__":
+    # Start the Flask app
+    app.run(debug=True, port=8181)

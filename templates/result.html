@@ -14,14 +14,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>F1 Telemetry Comparison</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
       }
 
-      body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      #result-body {
+        font-family: 'Rajdhani', Tahoma, Geneva, Verdana, sans-serif;
         background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
         color: white;
         height: 100vh;
@@ -37,15 +38,17 @@
 
       /* Ultra-compact header with everything in one line */
       .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-around;
-        gap: 20px;
-        width: 100%;
+
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          gap: 20px;
+          width: 100%;
+          
       }
 
       .race-info {
-        font-size: 0.9rem;
+        font-size: 1.2rem;
         font-weight: 600;
         opacity: 0.9;
         white-space: nowrap;
@@ -57,7 +60,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.85rem;
+        font-size: 1.2rem;
         font-weight: 600;
         white-space: nowrap;
       }
@@ -69,6 +72,7 @@
 
       .driver-name.driver2 {
         color: #4ecdc4;
+        font-weight: 700;
       }
 
       .lap-time {
@@ -157,11 +161,11 @@
         }
 
         .race-info {
-          font-size: 0.8rem;
+          font-size: 1rem;
         }
 
         .driver-time {
-          font-size: 0.8rem;
+          font-size: 0.9rem;
         }
 
         .actions {
@@ -217,14 +221,16 @@
         .header {
           padding: 0 10px;
           gap: 8px;
+          flex-wrap: wrap;
         }
 
         .race-info {
-          font-size: 0.7rem;
+          display: flex;
+          font-size: 1rem;
         }
 
         .driver-times {
-          font-size: 0.7rem;
+          font-size: 0.79rem;
           gap: 6px;
         }
 
@@ -270,18 +276,12 @@
       }
     </style>
   </head>
-  <body>
+  <body id="result-body">
     <div class="container">
       <!-- Ultra-compact header - everything in one 50px line -->
       <div
         class="header"
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: space-around;
-          gap: 20px;
-          width: 100%;
-        "
+        
       >
         <div class="race-info" style="margin-bottom: 0">
           {{ race_title }} • {{ session_name }}
@@ -290,7 +290,7 @@
           <span class="driver-name">{{ drv1_abbr }}</span>
           <span class="lap-time">{{ drv1_lap_time }}</span>
         </div>
-        <div class="vs-separator">VS</div>
+        <div class="vs-separator"></div>
         <div class="driver-time">
           <span class="driver-name driver2">{{ drv2_abbr }}</span>
           <span class="lap-time">{{ drv2_lap_time }}</span>
