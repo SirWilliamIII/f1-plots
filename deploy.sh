@@ -25,7 +25,7 @@ gcloud auth configure-docker gcr.io --quiet
 echo -e "\n📦 Pushing image to Google Container Registry..."
 podman push gcr.io/$PROJECT_ID/$IMAGE_NAME
 
-# === DEPLOY TO CLOUD RUN === 
+# === DEPLOY TO CLOUD RUN ===
 echo -e "\n🚀 Deploying to Google Cloud Run..."
 gcloud run deploy $SERVICE_NAME \
   --image gcr.io/$PROJECT_ID/$IMAGE_NAME \
@@ -37,12 +37,20 @@ gcloud run deploy $SERVICE_NAME \
   --cpu 2 \
   --timeout 900 \
   --concurrency 80 \
-  --max-instances 10
+  --max-instances 10 \
+  --set-env-vars PORT=8080
+
+# === CHECK DEPLOYMENT STATUS ===
+echo -e "\n🔍 Checking service status..."
+gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.conditions[0].message)'
 
 # === GET SERVICE URL ===
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
 
+# === SHOW RECENT LOGS ===
+echo -e "\n📋 Recent logs:"
+gcloud logs read --service=$SERVICE_NAME --region=$REGION --limit=10
+
 # === DONE ===
 echo -e "\n✅ Deployment complete!"
 echo -e "🌐 Service URL: $SERVICE_URL"
-
