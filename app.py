@@ -20,7 +20,6 @@ from flask_compress import Compress
 from matplotlib.ticker import FuncFormatter
 from datetime import datetime
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-
 from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
 
 # Set up logging

@@ -30,8 +30,9 @@
       .header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: space-around;
         gap: 20px;
+        width: 100%;
       }
 
       .race-info {
@@ -268,25 +269,24 @@
         style="
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: space-around;
           gap: 20px;
+          width: 100%;
         "
       >
-        <div style="display: flex; align-items: center; gap: 20px">
-          <div class="race-info" style="margin-bottom: 0">
-            {{ race_title }} • {{ session_name }}
-          </div>
-          <div class="driver-time">
-            <span class="driver-name">{{ drv1_abbr }}</span>
-            <span class="lap-time">{{ drv1_lap_time }}</span>
-          </div>
-          <div class="vs-separator">VS</div>
-          <div class="driver-time">
-            <span class="driver-name driver2">{{ drv2_abbr }}</span>
-            <span class="lap-time">{{ drv2_lap_time }}</span>
-          </div>
+        <div class="race-info" style="margin-bottom: 0">
+          {{ race_title }} • {{ session_name }}
         </div>
-        <div class="actions" style="margin-left: auto">
+        <div class="driver-time">
+          <span class="driver-name">{{ drv1_abbr }}</span>
+          <span class="lap-time">{{ drv1_lap_time }}</span>
+        </div>
+        <div class="vs-separator">VS</div>
+        <div class="driver-time">
+          <span class="driver-name driver2">{{ drv2_abbr }}</span>
+          <span class="lap-time">{{ drv2_lap_time }}</span>
+        </div>
+        <div class="actions">
           <a href="/" class="btn btn-primary">Generate New Plot</a>
         </div>
       </div>
