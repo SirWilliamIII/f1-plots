@@ -326,8 +326,9 @@ body {
 }
 
 #index-container {
+
   max-width: 900px;
-  margin: 0 auto;
+  margin: 10vh auto 0 auto;
   padding: 40px 20px;
   position: relative;
   z-index: 1;
@@ -358,15 +359,16 @@ body {
 
 #index-header h1 {
   font-family: "Orbitron", monospace;
-  font-size: 3.5rem;
+  font-size: 3.2rem;
   font-weight: 900;
   background: linear-gradient(45deg, #ff0000, #ff6b6b, #00ffff, #4ecdc4);
-  background-size: 300% 300%;
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   text-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
   margin-bottom: 10px;
-  letter-spacing: 2px;
+  margin-top: 10px;
+  letter-spacing: 1.8px;
 }
 
 @keyframes gradientShift {
@@ -917,6 +919,10 @@ body {
     gap: 10px;
   }
 
+  #index-header h1 {
+    font-size: 1.8rem;
+  }
+
   .race-info {
     font-size: 0.75rem;
   }
@@ -950,6 +956,10 @@ body {
     padding: 0 10px;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  #index-header h1 {
+    font-size: 1.5rem;
   }
 
   .race-info {
