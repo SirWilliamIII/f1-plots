@@ -681,24 +681,53 @@
           height: calc(100vh - 100px) !important;
           max-width: 400px !important;
         }
+
+        .message-content {
+          line-height: 1.5;
+        }
+        .message-content h3,
+        .message-content h4 {
+          color: #ff6b6b;
+          margin: 8px 0 4px 0;
+          font-size: 14px;
+        }
+        .message-content ul,
+        .message-content ol {
+          margin: 6px 0;
+          padding-left: 18px;
+        }
+        .message-content li {
+          margin: 3px 0;
+          font-size: 12px;
+        }
+        .message-content strong {
+          color: #4ecdc4;
+          font-weight: 600;
+        }
+        .message-content em {
+          color: #fbbf24;
+          font-style: normal;
+          font-weight: 500;
+        }
       }
 
-      .message-content {
-        line-height: 1.5;
-      }
       .message-content h3,
       .message-content h4 {
         color: #ff6b6b;
-        margin: 8px 0 4px 0;
+        margin: 12px 0 4px 0;
         font-size: 14px;
+        font-family: "Orbitron", monospace;
+      }
+      .message-content p {
+        margin: 0 0 8px 0;
       }
       .message-content ul,
       .message-content ol {
-        margin: 6px 0;
-        padding-left: 18px;
+        margin: 8px 0;
+        padding-left: 20px;
       }
       .message-content li {
-        margin: 3px 0;
+        margin: 4px 0;
         font-size: 12px;
       }
       .message-content strong {
@@ -968,7 +997,7 @@
 
         function buildContextualPrompt(userMessage, questionType) {
           const context = window.f1PlotContext;
-          let prompt = "You are an expert Formula 1 analyst and commentator with deep knowledge of racing, telemetry, and F1 history.";
+          let prompt = "You are an expert Formula 1 analyst and commentator with deep knowledge of racing, telemetry, and F1 history. Format your answers using markdown-like syntax: ### or #### for headings, - for list items, and ** for bold text.";
 
           // Add context based on question type
           switch(questionType) {
@@ -1002,23 +1031,47 @@
         }
 
         function formatF1Response(response, questionType) {
-          let formatted = response;
+          // A more robust markdown-to-HTML converter
+          let html = '\n' + response.trim() + '\n';
 
-          // Convert basic Markdown to HTML for a richer display.
+          // Inline styling for driver names
+          const context = window.f1PlotContext;
+          const drivers = [context.driver1, context.driver2];
+          drivers.forEach(driver => {
+            if (driver) {
+              const re = new RegExp(`\\b(${driver})\\b`, 'gi');
+              html = html.replace(re, '<em>$1</em>');
+            }
+          });
 
-          // Headings (e.g., ### -> <h3>)
-          formatted = formatted.replace(/^###\s+(.*)$/gm, '<h3>$1</h3>');
+          // Block-level elements
+          // Split into blocks by newlines, process each, then join.
+          // This prevents regex replacements from interfering with each other.
+          html = html.split(/\n/).map(line => {
+            // Headings (handles ### and ####)
+            if (/^#{3,4}\s/.test(line)) return line.replace(/^#{3,4}\s+(.*)/, '<h4>$1</h4>');
+            // List Items
+            if (/^\s*[-*]\s/.test(line)) return line.replace(/^\s*[-*]\s+(.*)/, '<li>$1</li>');
+            // Other lines are treated as plain text for now
+            return line;
+          }).join('\n');
 
-          // Bold text (e.g., **text** -> <strong>text</strong>)
-          formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          // Wrap consecutive list items in <ul>
+          html = html.replace(/((<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
 
-          // Unordered lists (e.g, - item -> <li>item</li>)
-          formatted = formatted.replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>');
+          // Paragraphs: wrap remaining text blocks (separated by newlines) in <p> tags
+          html = html.split('\n').map(line => {
+            if (line.trim() === '' || line.startsWith('<') || line.endsWith('>')) {
+              return line; // Don't wrap empty lines or existing HTML tags
+            }
+            return `<p>${line}</p>`;
+          }).join('\n').replace(/\n/g, ''); // Join and remove temp newlines
 
-          // Wrap consecutive list items in <ul> tags
-          formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+          // Inline elements (run last)
+          html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          html = html.replace(/(?<!\*)\*(?!\s)(.*?)(?<!\s)\*(?!\*)/g, '<em>$1</em>');
 
-          return formatted;
+          return html;
         }
 
         function addMessage(type, content, questionType = null) {
@@ -1117,5 +1170,6 @@
           }
         }
     </script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
   </body>
 </html>

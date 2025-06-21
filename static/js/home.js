@@ -1,0 +1,245 @@
+const yearSel = document.getElementById('year');
+      const raceSel = document.getElementById('race');
+      const sessionSel = document.getElementById('session');
+      const driver1Sel = document.getElementById('driver1');
+      const driver2Sel = document.getElementById('driver2');
+      const submitBtn = document.getElementById('submitBtn');
+      const submitText = document.getElementById('submitText');
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      const driversLoading = document.getElementById('driversLoading');
+      const driversSection = document.getElementById('driversSection');
+      const submitContainer = document.getElementById('submitContainer');
+
+      // Track form state
+      let driversLoaded = false;
+
+      // Racing sound effects (optional - uncomment if you want audio)
+      // const playEngineSound = () => {
+      //     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7bllHgg2jdXzzn0vBSF1xe/eizEIHWq+8+OWT');
+      //     audio.play().catch(() => {}); // Ignore errors
+      // };
+
+      // Dynamic form interactions
+      yearSel.addEventListener('change', function() {
+          if (this.value) {
+              raceSel.innerHTML = '<option value="">Loading races...</option>';
+              hideDriversSection();
+              fetchRaces(this.value);
+          } else {
+              hideDriversSection();
+          }
+      });
+
+      raceSel.addEventListener('change', function() {
+          hideDriversSection();
+          checkIfShouldLoadDrivers();
+      });
+
+      sessionSel.addEventListener('change', function() {
+          hideDriversSection();
+          checkIfShouldLoadDrivers();
+      });
+
+      // Check if all required fields are filled to load drivers
+      function checkIfShouldLoadDrivers() {
+          if (yearSel.value && raceSel.value && sessionSel.value) {
+              showLoadingState();
+              fetchDrivers();
+          }
+      }
+
+      // Show loading state
+      function showLoadingState() {
+          driversLoading.style.display = 'flex';
+          driversSection.style.display = 'none';
+          submitContainer.classList.add('hidden');
+          driversLoaded = false;
+      }
+
+      // Hide drivers section
+      function hideDriversSection() {
+          driversLoading.style.display = 'none';
+          driversSection.style.display = 'none';
+          submitContainer.classList.add('hidden');
+          driversLoaded = false;
+      }
+
+      // Show drivers section with animation
+      function showDriversSection() {
+          driversLoading.style.display = 'none';
+          driversSection.style.display = 'grid';
+          driversSection.classList.add('fade-in');
+          submitContainer.classList.remove('hidden');
+          driversLoaded = true;
+          checkFormReady();
+      }
+
+      // Fetch races
+      function fetchRaces(year) {
+          fetch('/get_races', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `year=${year}`
+          })
+          .then(response => response.json())
+          .then(data => {
+              raceSel.innerHTML = '<option value="">Select Race</option>';
+              if (data.races) {
+                  data.races.forEach(race => {
+                      // Handle both string and object formats
+                      const raceName = typeof race === 'string' ? race : race.EventName || race.name || race;
+                      raceSel.innerHTML += `<option value="${raceName}">${raceName}</option>`;
+                  });
+              }
+          })
+          .catch(error => {
+              raceSel.innerHTML = '<option value="">Error loading races</option>';
+              console.error('Error:', error);
+          });
+      }
+
+      // Fetch drivers with enhanced loading messages
+      function fetchDrivers() {
+          const loadingMessages = [
+              'Loading session data...',
+              'Analyzing telemetry...',
+              'Fetching driver lineup...',
+              'Preparing comparison...'
+          ];
+
+          let messageIndex = 0;
+          const messageInterval = setInterval(() => {
+              const loadingSubtext = document.querySelector('.loading-subtext');
+              if (loadingSubtext) {
+                  loadingSubtext.textContent = loadingMessages[messageIndex];
+                  messageIndex = (messageIndex + 1) % loadingMessages.length;
+              }
+          }, 1000);
+
+          const formData = new FormData();
+          formData.append('year', yearSel.value);
+          formData.append('race', raceSel.value);
+          formData.append('session', sessionSel.value);
+
+          fetch('/get_drivers', {
+              method: 'POST',
+              body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+              clearInterval(messageInterval);
+
+              driver1Sel.innerHTML = '<option value="">Select Driver</option>';
+              driver2Sel.innerHTML = '<option value="">Select Driver</option>';
+
+              if (data.drivers && data.drivers.length > 0) {
+                  data.drivers.forEach(driver => {
+                      const option = `<option value="${driver.abbreviation}">${driver.broadcast_name}</option>`;
+                      driver1Sel.innerHTML += option;
+                      driver2Sel.innerHTML += option;
+                  });
+                  showDriversSection();
+              } else {
+                  // Show error state
+                  driversLoading.innerHTML = `
+                      <div style="color: #ff6b6b; text-align: center;">
+                          <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                          <div class="loading-text">No Drivers Available</div>
+                          <div class="loading-subtext">${data.error || 'This session may not have telemetry data'}</div>
+                      </div>
+                  `;
+              }
+          })
+          .catch(error => {
+              clearInterval(messageInterval);
+              driversLoading.innerHTML = `
+                  <div style="color: #ff6b6b; text-align: center;">
+                      <div style="font-size: 2rem; margin-bottom: 10px;">❌</div>
+                      <div class="loading-text">Loading Failed</div>
+                      <div class="loading-subtext">Please try again</div>
+                  </div>
+              `;
+              console.error('Error:', error);
+          });
+      }
+
+      // Form submission with epic loading state
+      document.getElementById('telemetryForm').addEventListener('submit', function(e) {
+          // Validation
+          if (!driversLoaded) {
+              e.preventDefault();
+              alert('🏎️ Please wait for drivers to load!');
+              return;
+          }
+
+          if (driver1Sel.value === driver2Sel.value && driver1Sel.value !== '') {
+              e.preventDefault();
+              alert('🏎️ Please select different drivers for comparison!');
+              return;
+          }
+
+          if (!driver1Sel.value || !driver2Sel.value) {
+              e.preventDefault();
+              alert('🏎️ Please select both drivers!');
+              return;
+          }
+
+          // Epic loading state
+          submitBtn.disabled = true;
+          submitBtn.classList.add('loading');
+          submitText.textContent = 'ANALYZING...';
+          loadingSpinner.style.display = 'inline-block';
+
+          // Remove the racing flair animation on submit
+          // document.body.style.animation = 'trackShift 1s ease-in-out infinite';
+      });
+
+      // Add some interactive hover effects
+      document.querySelectorAll('select').forEach(select => {
+          select.addEventListener('focus', function() {
+              this.parentElement.style.transform = 'translateY(-2px)';
+          });
+
+          select.addEventListener('blur', function() {
+              this.parentElement.style.transform = 'translateY(0)';
+          });
+      });
+
+      // Keyboard shortcuts for power users
+      document.addEventListener('keydown', function(e) {
+          if (e.ctrlKey && e.key === 'Enter' && driversLoaded) {
+              document.getElementById('telemetryForm').submit();
+          }
+      });
+
+      // Easter egg - Konami code for extra racing effects
+      let konamiCode = [];
+      const konami = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65]; // Up Up Down Down Left Right Left Right B A
+
+      document.addEventListener('keydown', function(e) {
+          konamiCode.push(e.keyCode);
+          if (konamiCode.length > 10) konamiCode.shift();
+
+          if (konamiCode.join(',') === konami.join(',')) {
+              document.body.style.animation = 'trackShift 0.5s ease-in-out infinite, stripeMove 2s linear infinite';
+              setTimeout(() => {
+                  document.body.style.animation = '';
+              }, 3000);
+          }
+      });
+
+      function checkFormReady() {
+          const year = yearSel.value;
+          const race = raceSel.value;
+          const session = sessionSel.value;
+          const driver1 = driver1Sel.value;
+          const driver2 = driver2Sel.value;
+          // All fields must be filled and drivers must be different
+          const ready = year && race && session && driver1 && driver2 && (driver1 !== driver2);
+          submitBtn.disabled = !ready;
+      }
+
+      // Add event listeners to all relevant selects
+      [yearSel, raceSel, sessionSel, driver1Sel, driver2Sel].forEach(sel => {
+          sel.addEventListener('change', checkFormReady);
+      });

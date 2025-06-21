@@ -124,7 +124,6 @@ class F1TelemetryApp {
 
   determineQuestionType(message, context) {
     const msg = message.toLowerCase()
-
     const plotKeywords = [
       'plot',
       'chart',
@@ -183,9 +182,7 @@ class F1TelemetryApp {
           const biggestGain = context.getBiggestTimeGain()
           const biggestMistake = context.getBiggestMistake()
 
-          prompt += `\n\nYou are analyzing a specific telemetry comparison plot between ${
-            context.driver1
-          } and ${context.driver2} from ${context.race} ${context.session}.
+          prompt += `\n\nYou are analyzing a specific telemetry comparison plot between ${context.driver1} and ${context.driver2} from ${context.race} ${context.session}.
 
 REAL TELEMETRY DATA ACCESS:
 - ${context.driver1} Lap Time: ${context.lapTime1}
@@ -282,7 +279,7 @@ AVAILABLE REAL DATA:
           } key moments annotated in the plot
 - Sampled data points every 5 seconds throughout the lap
 
-INSTRUCTIONS: Combine your general F1 knowledge with insights from the current plot data when relevant. You can reference specific moments, times, and values from this actual telemetry comparison.
+INSTRUCTIONS: Combine your vast knowledge of Formula 1 data and telemetry to form insights from the current plot data. Reference specific moments, times, and values from this actual telemetry comparison plot between two drivers.
 
 User Question: ${userMessage}
 
@@ -293,16 +290,16 @@ Current telemetry plot: ${context.driver1} vs ${context.driver2} from ${context.
 - ${context.driver1} Time: ${context.lapTime1}
 - ${context.driver2} Time: ${context.lapTime2}
 
-INSTRUCTIONS: Combine your general F1 knowledge with insights from the current plot when relevant. If discussing the current drivers/race, reference the plot data when applicable.
+INSTRUCTIONS: Combine your vast knowledge of Formula 1 data and telemetry with insights from the current plot data. Reference specific moments, times, and values from this actual telemetry comparison plot between two drivers.
 
 User Question: ${userMessage}
 
-Provide insights using both your F1 knowledge and current plot context:`
+Provide insights using both your F1 knowledge and expert level analysis of the current plot context:`
         }
         break
 
       case 'general-telemetry':
-        prompt += `\n\nCONTEXT: We're currently viewing telemetry from ${context.race} with ${context.driver1} vs ${context.driver2}, but answer with general telemetry knowledge.
+        prompt += `\n\nCONTEXT: We're currently viewing telemetry from ${context.race} with ${context.driver1} vs ${context.driver2}, ensure your answers are relavent to the current context and explain the concepts to a non-expert.
 
 User Question: ${userMessage}
 
@@ -465,13 +462,15 @@ Provide comprehensive F1 knowledge and insights:`
       if (exampleButtons.length >= 4) {
         exampleButtons[0].onclick = () =>
           this.askQuestion(
-            `Where does ${context.driver1} gain the most time over ${context.driver2} in this plot?`
+            `What is the biggest time gain between ${context.driver1} and ${context.driver2} in this plot?`
+            
           )
         exampleButtons[0].textContent = `📊 Where does ${context.driver1} gain time vs ${context.driver2}?`
 
         exampleButtons[2].onclick = () =>
           this.askQuestion(
             `Analyze the throttle and brake differences between ${context.driver1} and ${context.driver2} in this specific plot`
+            `Analyze ${context.driver1} vs ${context.driver2} throttle and brake patterns`
           )
         exampleButtons[2].textContent = `🚦 Analyze ${context.driver1} vs ${context.driver2} throttle/brake patterns`
 
