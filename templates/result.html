@@ -12,7 +12,6 @@
         dataLayer.push(arguments);
       }
       gtag("js", new Date());
-
       gtag("config", "G-753TJTNXPC");
     </script>
     <meta charset="UTF-8" />
@@ -22,11 +21,15 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='styles.css') }}"
     />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/animations.css') }}"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   </head>
   <body id="result-body">
     <div class="container">
-      <!-- Ultra-compact header - everything in one 50px line -->
+      <!-- Ultra-compact header -->
       <div class="header">
         <div class="race-info" style="margin-bottom: 0">
           {{ race_title }} • {{ session_name }}
@@ -34,11 +37,25 @@
         <div class="driver-time">
           <span class="driver-name">{{ drv1_abbr }}</span>
           <span class="lap-time">{{ drv1_lap_time }}</span>
+          <div class="sector-times">
+            {% for sector in drv1_sectors %}
+            <span class="sector-time" style="color: {{ sector.color }};">
+              S{{ loop.index }}: {{ sector.time }}
+            </span>
+            {% endfor %}
+          </div>
         </div>
         <div class="vs-separator"></div>
         <div class="driver-time">
           <span class="driver-name driver2">{{ drv2_abbr }}</span>
           <span class="lap-time">{{ drv2_lap_time }}</span>
+          <div class="sector-times">
+            {% for sector in drv2_sectors %}
+            <span class="sector-time" style="color: {{ sector.color }};">
+              S{{ loop.index }}: {{ sector.time }}
+            </span>
+            {% endfor %}
+          </div>
         </div>
         <div class="actions">
           <a href="/" class="btn btn-primary">Generate New Plot</a>
@@ -48,7 +65,7 @@
         </div>
       </div>
 
-      <!-- Plot Section - Takes up ~95% of viewport -->
+      <!-- Plot Section -->
       <div class="plot-section">
         <div class="plot-container">
           {% if plot_path %}
@@ -64,6 +81,1041 @@
       </div>
     </div>
 
+    <!-- F1 AI Chat Widget - FLOATING OVERLAY -->
+    <div
+      id="f1-chat-widget"
+      style="
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 1000;
+        font-family: 'Rajdhani', sans-serif;
+      "
+    >
+      <button
+        id="chatToggleBtn"
+        style="
+          background: linear-gradient(45deg, #ff0000, #ff6b6b);
+          color: white;
+          border: none;
+          border-radius: 50px;
+          padding: 16px 20px;
+          box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: bold;
+          font-size: 14px;
+        "
+      >
+        <span>🏎️</span>
+        <span>F1 AI</span>
+        <div
+          class="pulse"
+          style="
+            width: 12px;
+            height: 12px;
+            background: #fbbf24;
+            border-radius: 50%;
+          "
+        ></div>
+      </button>
+
+      <div
+        id="chatContainer"
+        style="
+          display: none;
+          width: 420px;
+          height: 650px;
+          background: linear-gradient(
+            135deg,
+            rgba(26, 26, 26, 0.95) 0%,
+            rgba(45, 27, 27, 0.95) 100%
+          );
+          backdrop-filter: blur(20px);
+          border: 2px solid rgba(255, 107, 107, 0.3);
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+          overflow: hidden;
+          flex-direction: column;
+        "
+      >
+        <!-- Chat Header -->
+        <div
+          style="
+            padding: 16px;
+            background: linear-gradient(
+              135deg,
+              rgba(255, 0, 0, 0.15) 0%,
+              rgba(0, 0, 0, 0.4) 100%
+            );
+            border-bottom: 1px solid rgba(255, 107, 107, 0.2);
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 12px;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 10px">
+              <div
+                style="
+                  width: 32px;
+                  height: 32px;
+                  border-radius: 50%;
+                  background: linear-gradient(45deg, #ff0000, #ff6b6b);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-size: 16px;
+                "
+              >
+                🤖
+              </div>
+              <div>
+                <h3
+                  style="
+                    color: white;
+                    font-family: 'Orbitron', monospace;
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin: 0;
+                  "
+                >
+                  F1 EXPERT AI
+                </h3>
+                <p
+                  style="
+                    color: rgba(255, 255, 255, 0.7);
+                    font-size: 12px;
+                    margin: 4px 0 0 0;
+                  "
+                >
+                  {{ drv1_abbr }} vs {{ drv2_abbr }} • {{ race_title }}
+                </p>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <button
+                onclick="analyzePlot()"
+                style="
+                  background: rgba(255, 255, 255, 0.1);
+                  border: none;
+                  color: rgba(255, 255, 255, 0.7);
+                  padding: 6px 8px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 11px;
+                "
+              >
+                📊 Plot
+              </button>
+              <button
+                onclick="clearChat()"
+                style="
+                  background: rgba(255, 255, 255, 0.1);
+                  border: none;
+                  color: rgba(255, 255, 255, 0.7);
+                  padding: 6px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                "
+              >
+                🗑️
+              </button>
+              <button
+                onclick="closeChat()"
+                style="
+                  background: rgba(255, 255, 255, 0.1);
+                  border: none;
+                  color: rgba(255, 255, 255, 0.7);
+                  padding: 6px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                "
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          <!-- Context Mode Indicator -->
+          <div
+            id="contextMode"
+            style="
+              background: rgba(0, 0, 0, 0.3);
+              border-radius: 8px;
+              padding: 8px;
+              margin-bottom: 8px;
+              font-size: 11px;
+              color: rgba(255, 255, 255, 0.8);
+            "
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <span id="modeText">🌐 General F1 Knowledge + Plot Analysis</span>
+              <div
+                id="modeIndicator"
+                style="
+                  width: 8px;
+                  height: 8px;
+                  border-radius: 50%;
+                  background: #10b981;
+                "
+              ></div>
+            </div>
+            <div
+              style="
+                font-size: 10px;
+                color: rgba(255, 255, 255, 0.6);
+                margin-top: 2px;
+              "
+            >
+              Ask anything about F1 or analyze the current telemetry
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 12px;
+              color: rgba(255, 255, 255, 0.8);
+            "
+          >
+            <div
+              id="statusDot"
+              style="
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: #ef4444;
+              "
+            ></div>
+            <span id="statusText">Connecting...</span>
+          </div>
+        </div>
+
+        <!-- Chat Messages -->
+        <div
+          id="chatMessages"
+          style="
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #666 transparent;
+          "
+        >
+          <div
+            id="welcomeScreen"
+            style="
+              text-align: center;
+              color: rgba(255, 255, 255, 0.7);
+              margin-top: 15px;
+            "
+          >
+            <div
+              style="
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: linear-gradient(45deg, #ff0000, #ff6b6b);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 12px;
+                color: white;
+                font-size: 24px;
+              "
+            >
+              🤖
+            </div>
+            <div
+              style="
+                font-family: 'Orbitron', monospace;
+                font-weight: bold;
+                margin-bottom: 8px;
+                color: white;
+                font-size: 14px;
+              "
+            >
+              F1 EXPERT AI
+            </div>
+            <p
+              style="
+                font-size: 12px;
+                margin-bottom: 16px;
+                color: rgba(255, 255, 255, 0.8);
+              "
+            >
+              Ask me anything about Formula 1 or analyze this telemetry
+            </p>
+
+            <div style="margin-top: 16px">
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 8px;
+                  margin-bottom: 12px;
+                "
+              >
+                <div
+                  style="
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 8px;
+                    padding: 8px;
+                    text-align: center;
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 10px;
+                      color: rgba(255, 255, 255, 0.5);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    📊 PLOT ANALYSIS
+                  </div>
+
+                  <button
+                    onclick="askQuestion('Analyze this telemetry comparison')"
+                    style="
+                      width: 100%;
+                      background: none;
+                      border: 1px solid rgba(255, 107, 107, 0.3);
+                      color: rgba(255, 255, 255, 0.8);
+                      padding: 6px;
+                      border-radius: 6px;
+                      font-size: 10px;
+                      cursor: pointer;
+                    "
+                  >
+                    Key differences
+                  </button>
+                </div>
+                <div
+                  style="
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 8px;
+                    padding: 8px;
+                    text-align: center;
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 10px;
+                      color: rgba(255, 255, 255, 0.5);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    🌐 F1 KNOWLEDGE
+                  </div>
+                  <button
+                    onclick="askQuestion('Explain F1 regulations')"
+                    style="
+                      width: 100%;
+                      background: none;
+                      border: 1px solid rgba(78, 205, 196, 0.3);
+                      color: rgba(255, 255, 255, 0.8);
+                      padding: 6px;
+                      border-radius: 6px;
+                      font-size: 10px;
+                      cursor: pointer;
+                    "
+                  >
+                    F1 rules
+                  </button>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px">
+                <p
+                  style="
+                    font-size: 10px;
+                    color: rgba(255, 255, 255, 0.5);
+                    margin-bottom: 6px;
+                  "
+                >
+                  💡 EXAMPLE QUESTIONS:
+                </p>
+
+                <button
+                  onclick="askQuestion('Where does {{ drv1_abbr }} gain or lose time over {{ drv2_abbr }} in this plot?')"
+                  style="
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: rgba(255, 255, 255, 0.8);
+                    padding: 6px 8px;
+                    margin-bottom: 4px;
+                    border-radius: 6px;
+                    font-size: 10px;
+                    cursor: pointer;
+                  "
+                >
+                  📊 Where does {{ drv1_abbr }} gain or lose time in this plot?
+                </button>
+                <button
+                  onclick="askQuestion('What happened at turn 5 with {{ drv1_abbr }} or {{ drv2_abbr }}?')"
+                  style="
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: rgba(255, 255, 255, 0.8);
+                    padding: 6px 8px;
+                    margin-bottom: 4px;
+                    border-radius: 6px;
+                    font-size: 10px;
+                    cursor: pointer;
+                  "
+                >
+                  🌐 What happened at turn 5?
+                </button>
+
+                <button
+                  onclick="askQuestion('Compare {{ drv1_abbr }} and {{ drv2_abbr }} lap performance in this session')"
+                  style="
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: rgba(255, 255, 255, 0.8);
+                    padding: 6px 8px;
+                    margin-bottom: 4px;
+                    border-radius: 6px;
+                    font-size: 10px;
+                    cursor: pointer;
+                  "
+                >
+                  🔄 Compare the lap of {{ drv1_abbr }} vs {{ drv2_abbr }} lap
+                </button>
+                <button
+                  onclick="askQuestion('What is the biggest mistake made by either {{ drv1_abbr }} or {{ drv2_abbr }} in this session?')"
+                  style="
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: rgba(255, 255, 255, 0.8);
+                    padding: 6px 8px;
+                    border-radius: 6px;
+                    font-size: 10px;
+                    cursor: pointer;
+                  "
+                >
+                  🏁 How do the drivers compare in this session?
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input -->
+
+        <!-- Chat Input -->
+        <div
+          style="
+            padding: 16px;
+            border-top: 1px solid rgba(255, 107, 107, 0.2);
+            background: linear-gradient(
+              135deg,
+              rgba(255, 0, 0, 0.05) 0%,
+              rgba(0, 0, 0, 0.3) 100%
+            );
+          "
+        >
+          <div
+            id="offlineMessage"
+            style="
+              display: none;
+              text-align: center;
+              color: rgba(255, 255, 255, 0.6);
+              padding: 16px;
+            "
+          >
+            <p style="margin: 8px 0; font-size: 12px; font-weight: bold">
+              AI Assistant Offline
+            </p>
+            <p
+              style="
+                margin: 0 0 8px 0;
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.6);
+              "
+            >
+              Start Ollama:
+              <code
+                style="
+                  background: rgba(255, 255, 255, 0.1);
+                  padding: 2px 4px;
+                  border-radius: 3px;
+                "
+                >ollama serve</code
+              >
+            </p>
+            <button
+              onclick="checkConnection()"
+              style="
+                padding: 6px 12px;
+                background: #dc2626;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 11px;
+                cursor: pointer;
+              "
+            >
+              Retry Connection
+            </button>
+          </div>
+
+          <div id="inputArea">
+            <div style="display: flex; gap: 8px">
+              <textarea
+                id="messageInput"
+                placeholder="Ask about F1 or analyze this telemetry..."
+                style="
+                  flex: 1;
+                  background: rgba(0, 0, 0, 0.4);
+                  border: 1px solid rgba(255, 255, 255, 0.2);
+                  color: white;
+                  padding: 10px 12px;
+                  border-radius: 10px;
+                  font-size: 13px;
+                  font-family: 'Rajdhani', sans-serif;
+                  resize: none;
+                  outline: none;
+                "
+                rows="2"
+              ></textarea>
+              <button
+                onclick="sendMessage()"
+                id="sendBtn"
+                style="
+                  width: 40px;
+                  height: 40px;
+                  background: linear-gradient(45deg, #ff0000, #ff6b6b);
+                  border: none;
+                  border-radius: 8px;
+                  color: white;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                ➤
+              </button>
+            </div>
+            <div
+              style="
+                margin-top: 8px;
+                font-size: 10px;
+                color: rgba(255, 255, 255, 0.5);
+                text-align: center;
+              "
+            >
+              🤖 Ask anything about F1 • 📊 Plot-specific questions get
+              telemetry focus
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="{{ url_for('static', filename='main.js') }}"></script>
+
+    <style>
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.7;
+          transform: scale(1.1);
+        }
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      #chatContainer.expanded {
+        display: flex !important;
+      }
+
+      @media (max-width: 768px) {
+        #f1-chat-widget {
+          bottom: 16px !important;
+          right: 16px !important;
+        }
+        #chatContainer {
+          width: calc(100vw - 32px) !important;
+          height: calc(100vh - 100px) !important;
+          max-width: 400px !important;
+        }
+      }
+
+      .message-content {
+        line-height: 1.5;
+      }
+      .message-content h3,
+      .message-content h4 {
+        color: #ff6b6b;
+        margin: 8px 0 4px 0;
+        font-size: 14px;
+      }
+      .message-content ul,
+      .message-content ol {
+        margin: 6px 0;
+        padding-left: 18px;
+      }
+      .message-content li {
+        margin: 3px 0;
+        font-size: 12px;
+      }
+      .message-content strong {
+        color: #4ecdc4;
+        font-weight: 600;
+      }
+      .message-content em {
+        color: #fbbf24;
+        font-style: normal;
+        font-weight: 500;
+      }
+    </style>
+
+    <script>
+        // F1 chat system with telemetry data access
+        let isConnected = false;
+        let isExpanded = false;
+        let messages = [];
+
+        // Plot context with telemetry data
+        window.f1PlotContext = {
+          race: "{{ race_title }}",
+          session: "{{ session_name }}",
+          driver1: "{{ drv1_abbr }}",
+          driver2: "{{ drv2_abbr }}",
+          lapTime1: "{{ drv1_lap_time }}",
+          lapTime2: "{{ drv2_lap_time }}",
+          hasPlot: true,
+          plotType: "telemetry_comparison",
+
+          // Real telemetry data (only if available)
+          {% if ai_telemetry_data %}
+          telemetryData: {{ ai_telemetry_data | tojson }},
+          {% else %}
+          telemetryData: null,
+          {% endif %}
+
+          {% if ai_annotations %}
+          annotations: {{ ai_annotations | tojson }},
+          {% else %}
+          annotations: null,
+          {% endif %}
+
+          // Helper functions for AI queries
+          getTelemetryStats: function() {
+            return this.telemetryData ? this.telemetryData.statistics : null;
+          },
+
+          getBiggestTimeGain: function() {
+            if (!this.annotations || this.annotations.length === 0) return null;
+            return this.annotations.reduce((max, current) =>
+              Math.abs(current.time_gain_loss) > Math.abs(max.time_gain_loss) ? current : max
+            );
+          },
+
+          getBiggestMistake: function() {
+            if (!this.annotations) return null;
+            return this.annotations.find(ann =>
+              ann.description.toLowerCase().includes('mistake') ||
+              ann.description.toLowerCase().includes('lock-up') ||
+              ann.description.toLowerCase().includes('wide')
+            );
+          }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+          setupEventListeners();
+          checkConnection();
+          setTimeout(updateWelcomeScreenWithRealData, 100);
+        });
+
+        function setupEventListeners() {
+          document.getElementById('chatToggleBtn').onclick = toggleChat;
+
+          const messageInput = document.getElementById('messageInput');
+          messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          });
+        }
+
+        async function checkConnection() {
+          try {
+            const response = await fetch('/ollama_proxy/tags');
+            setConnectionStatus(response.ok);
+          } catch (error) {
+            setConnectionStatus(false);
+          }
+        }
+
+        function setConnectionStatus(connected) {
+          isConnected = connected;
+          const statusDot = document.getElementById('statusDot');
+          const statusText = document.getElementById('statusText');
+          const offlineMessage = document.getElementById('offlineMessage');
+          const inputArea = document.getElementById('inputArea');
+
+          if (connected) {
+            statusDot.style.backgroundColor = '#10b981';
+            statusText.textContent = 'F1 AI Ready';
+            offlineMessage.style.display = 'none';
+            inputArea.style.display = 'block';
+          } else {
+            statusDot.style.backgroundColor = '#ef4444';
+            statusText.textContent = 'AI Offline';
+            offlineMessage.style.display = 'block';
+            inputArea.style.display = 'none';
+          }
+        }
+
+        function toggleChat() {
+          isExpanded = !isExpanded;
+          const container = document.getElementById('chatContainer');
+          const button = document.getElementById('chatToggleBtn');
+
+          if (isExpanded) {
+            container.classList.add('expanded');
+            container.style.setProperty('display', 'flex', 'important');
+            button.style.setProperty('display', 'none', 'important');
+          } else {
+            container.classList.remove('expanded');
+            container.style.setProperty('display', 'none', 'important');
+            button.style.setProperty('display', 'flex', 'important');
+          }
+        }
+
+        function closeChat() {
+          console.log('closeChat called');
+          isExpanded = false;
+          const container = document.getElementById('chatContainer');
+          const button = document.getElementById('chatToggleBtn');
+
+          console.log('Before close - container display:', container.style.display);
+          console.log('Before close - container classes:', container.className);
+
+          container.classList.remove('expanded');
+          container.style.setProperty('display', 'none', 'important');
+          button.style.setProperty('display', 'flex', 'important');
+
+          console.log('After close - container display:', container.style.display);
+          console.log('After close - container classes:', container.className);
+        }
+
+        function clearChat() {
+          messages = [];
+          const messagesContainer = document.getElementById('chatMessages');
+          messagesContainer.innerHTML = document.getElementById('welcomeScreen').outerHTML;
+        }
+
+        function askQuestion(question) {
+          document.getElementById('messageInput').value = question;
+          sendMessage();
+        }
+
+        function analyzePlot() {
+          const context = window.f1PlotContext;
+          let autoAnalysis = `Analyze the telemetry comparison between ${context.driver1} and ${context.driver2} from this ${context.race} plot. Focus on the key differences in throttle, braking, RPM, and speed patterns.`;
+
+          if (context.telemetryData) {
+            const biggestGain = context.getBiggestTimeGain();
+            const stats = context.getTelemetryStats();
+
+            if (biggestGain) {
+              autoAnalysis += ` Pay special attention to the moment at ${biggestGain.time_seconds.toFixed(1)} seconds where ${biggestGain.description}.`;
+            }
+
+            if (stats) {
+              autoAnalysis += ` The data shows ${context.driver1} averaged ${stats.avg_speed[context.driver1].toFixed(1)} km/h vs ${context.driver2} at ${stats.avg_speed[context.driver2].toFixed(1)} km/h.`;
+            }
+          }
+
+          document.getElementById('messageInput').value = autoAnalysis;
+          sendMessage();
+        }
+
+        async function sendMessage() {
+          const input = document.getElementById('messageInput');
+          const message = input.value.trim();
+
+          if (!message || !isConnected) return;
+
+          const questionType = categorizeQuestion(message);
+          updateContextMode(questionType);
+
+          addMessage('user', message);
+          input.value = '';
+          showTypingIndicator();
+
+          try {
+            const prompt = buildContextualPrompt(message, questionType);
+
+            const response = await fetch('/ollama_proxy/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'f1expert',
+                prompt: prompt,
+                stream: false,
+                options: {
+                  temperature: 0.7,
+                  top_p: 0.9,
+                  max_tokens: 800
+                }
+              })
+            });
+
+            if (!response.ok) throw new Error('API request failed');
+
+            const data = await response.json();
+            hideTypingIndicator();
+
+            const formattedResponse = formatF1Response(data.response, questionType);
+            addMessage('assistant', formattedResponse, questionType);
+          } catch (error) {
+            hideTypingIndicator();
+            addMessage('error', 'Connection error. Ensure Ollama is running and try again.');
+          }
+        }
+
+        function categorizeQuestion(message) {
+          const msgLower = message.toLowerCase();
+
+          const plotKeywords = [
+            'this plot', 'this telemetry', 'this comparison', 'this data', 'this graph',
+            'in this lap', 'plot shows', 'telemetry shows', 'analyze this'
+          ];
+
+          const telemetryKeywords = [
+            'throttle', 'brake', 'braking', 'rpm', 'speed', 'telemetry', 'sector', 'lap time'
+          ];
+
+          const driverNames = ['{{ drv1_abbr }}', '{{ drv2_abbr }}'].map(d => d.toLowerCase());
+
+          if (plotKeywords.some(keyword => msgLower.includes(keyword))) {
+            return 'plot-specific';
+          }
+
+          if (telemetryKeywords.some(keyword => msgLower.includes(keyword)) &&
+              driverNames.some(driver => msgLower.includes(driver))) {
+            return 'plot-contextual';
+          }
+
+          if (telemetryKeywords.some(keyword => msgLower.includes(keyword))) {
+            return 'general-telemetry';
+          }
+
+          return 'general-f1';
+        }
+
+        function updateContextMode(questionType) {
+          const modeText = document.getElementById('modeText');
+          const modeIndicator = document.getElementById('modeIndicator');
+
+          const modeConfig = {
+            'plot-specific': { text: '📊 Plot Analysis Mode', color: '#ff6b6b' },
+            'plot-contextual': { text: '🔄 Plot + General Knowledge', color: '#fbbf24' },
+            'general-telemetry': { text: '📈 General Telemetry Knowledge', color: '#4ecdc4' },
+            'general-f1': { text: '🌐 General F1 Knowledge', color: '#10b981' }
+          };
+
+          const config = modeConfig[questionType] || modeConfig['general-f1'];
+          modeText.textContent = config.text;
+          modeIndicator.style.backgroundColor = config.color;
+        }
+
+        function buildContextualPrompt(userMessage, questionType) {
+          const context = window.f1PlotContext;
+          let prompt = "You are an expert Formula 1 analyst and commentator with deep knowledge of racing, telemetry, and F1 history.";
+
+          // Add context based on question type
+          switch(questionType) {
+            case 'plot-specific':
+              if (context.telemetryData && context.annotations) {
+                const stats = context.getTelemetryStats();
+                prompt += `\n\nCURRENT TELEMETRY ANALYSIS CONTEXT:
+      You are analyzing a specific telemetry comparison plot between ${context.driver1} and ${context.driver2} from ${context.race} ${context.session}.
+
+      REAL TELEMETRY DATA:
+      - ${context.driver1} Lap Time: ${context.lapTime1}
+      - ${context.driver2} Lap Time: ${context.lapTime2}
+      - Max Speed: ${context.driver1} ${stats.max_speed[context.driver1].toFixed(1)} km/h vs ${context.driver2} ${stats.max_speed[context.driver2].toFixed(1)} km/h
+      - Average Speed: ${context.driver1} ${stats.avg_speed[context.driver1].toFixed(1)} km/h vs ${context.driver2} ${stats.avg_speed[context.driver2].toFixed(1)} km/h
+
+      KEY MOMENTS IN PLOT:`;
+
+                context.annotations.slice(0, 5).forEach(ann => {
+                  prompt += `\n- ${ann.time_seconds.toFixed(1)}s: ${ann.description}`;
+                });
+              }
+              break;
+
+            case 'plot-contextual':
+              prompt += `\n\nCONTEXT: Currently viewing ${context.driver1} vs ${context.driver2} from ${context.race} ${context.session}.`;
+              break;
+          }
+
+          prompt += `\n\nUser Question: ${userMessage}\n\nProvide expert F1 analysis:`;
+          return prompt;
+        }
+
+        function formatF1Response(response, questionType) {
+          let formatted = response;
+
+          // Convert basic Markdown to HTML for a richer display.
+
+          // Headings (e.g., ### -> <h3>)
+          formatted = formatted.replace(/^###\s+(.*)$/gm, '<h3>$1</h3>');
+
+          // Bold text (e.g., **text** -> <strong>text</strong>)
+          formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+          // Unordered lists (e.g, - item -> <li>item</li>)
+          formatted = formatted.replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>');
+
+          // Wrap consecutive list items in <ul> tags
+          formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+          return formatted;
+        }
+
+        function addMessage(type, content, questionType = null) {
+          const messagesContainer = document.getElementById('chatMessages');
+          const welcomeScreen = document.getElementById('welcomeScreen');
+
+          if (welcomeScreen) {
+            welcomeScreen.style.display = 'none';
+          }
+
+          const messageDiv = document.createElement('div');
+          messageDiv.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px;' +
+              (type === 'user' ? 'flex-direction: row-reverse;' : '');
+
+          const avatar = document.createElement('div');
+          avatar.style.cssText = 'width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;';
+
+          if (type === 'user') {
+            avatar.style.background = 'linear-gradient(45deg, #06b6d4, #0891b2)';
+            avatar.textContent = '👤';
+          } else if (type === 'error') {
+            avatar.style.background = 'linear-gradient(45deg, #ef4444, #dc2626)';
+            avatar.textContent = '⚠️';
+          } else {
+            avatar.style.background = 'linear-gradient(45deg, #ff0000, #ff6b6b)';
+            avatar.textContent = '🤖';
+          }
+
+          const messageContent = document.createElement('div');
+          messageContent.className = 'message-content';
+          messageContent.style.cssText = 'max-width: 85%; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5;';
+
+          if (type === 'user') {
+            messageContent.style.cssText += 'background: linear-gradient(45deg, #0891b2, #06b6d4); color: white;';
+          } else if (type === 'error') {
+            messageContent.style.cssText += 'background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5;';
+          } else {
+            messageContent.style.cssText += 'background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.95); border: 1px solid rgba(255, 255, 255, 0.1);';
+          }
+
+          messageContent.innerHTML = `
+            <div>${content}</div>
+            <div style="font-size: 10px; opacity: 0.6; margin-top: 6px;">${new Date().toLocaleTimeString()}</div>
+          `;
+
+          messageDiv.appendChild(avatar);
+          messageDiv.appendChild(messageContent);
+          messagesContainer.appendChild(messageDiv);
+
+          messages.push({ type, content, timestamp: new Date(), questionType });
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+          const messagesContainer = document.getElementById('chatMessages');
+          const typingDiv = document.createElement('div');
+          typingDiv.id = 'typingIndicator';
+          typingDiv.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px;';
+
+          typingDiv.innerHTML = `
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(45deg, #ff0000, #ff6b6b); display: flex; align-items: center; justify-content: center; font-size: 14px;">🤖</div>
+            <div style="max-width: 80%; padding: 10px 12px; border-radius: 12px; font-size: 13px; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(255, 255, 255, 0.1);">
+              <div style="display: flex; align-items: center; gap: 6px; color: rgba(255, 255, 255, 0.6); font-size: 12px;">
+                <div style="width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.2); border-top: 2px solid #ff6b6b; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <span>Analyzing F1 data...</span>
+              </div>
+            </div>
+          `;
+
+          messagesContainer.appendChild(typingDiv);
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+          const indicator = document.getElementById('typingIndicator');
+          if (indicator) {
+            indicator.remove();
+          }
+        }
+
+        function updateWelcomeScreenWithRealData() {
+          const context = window.f1PlotContext;
+
+          if (!context.telemetryData) return;
+
+          const biggestGain = context.getBiggestTimeGain();
+          const welcomeScreen = document.getElementById('welcomeScreen');
+
+          if (welcomeScreen && biggestGain) {
+            const exampleButtons = welcomeScreen.querySelectorAll('button[onclick*="askQuestion"]');
+
+            if (exampleButtons.length >= 4) {
+              exampleButtons[0].onclick = () => askQuestion(`Where does ${context.driver1} gain the most time over ${context.driver2} in this plot?`);
+              exampleButtons[0].textContent = `📊 Where does ${context.driver1} gain time vs ${context.driver2}?`;
+            }
+          }
+        }
+    </script>
   </body>
 </html>
