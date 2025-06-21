@@ -2,8 +2,8 @@ FROM python:3.12-slim as builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies and security updates
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,6 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM python:3.12-slim
 
 WORKDIR /app
+
+# Install security updates in final stage
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 # Copy only necessary files from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
