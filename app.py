@@ -593,9 +593,9 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         fig, axes = plt.subplots(
             nrows=len(telemetry_metrics),  # Match number of metrics
             ncols=1,
-            figsize=(14, 10),
+            figsize=(15, 12), # Taller and wider for better readability
             sharex=True,
-            gridspec_kw={'hspace': 0.4}
+            gridspec_kw={'hspace': 0.15} # Reduced vertical spacing
         )
         fig.patch.set_facecolor("#111")
 
@@ -618,6 +618,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         )
         axes[0].set_ylabel("Throttle", **label_font)
         axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white")
+        axes[0].set_ylim(0, 105) # Set explicit Y-limit for Throttle
 
         # Plot brakes
         axes[1].plot(
@@ -627,6 +628,8 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color
         )
         axes[1].set_ylabel("Brakes", **label_font)
+        axes[1].set_yticks([0, 1]) # Only show 0 and 1 on y-axis
+        axes[1].set_ylim(-0.1, 1.1) # Set tight Y-limit for Brakes
 
         # Plot RPM
         axes[2].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["RPM"], color=drv1_color)
