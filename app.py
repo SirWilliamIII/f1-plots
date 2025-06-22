@@ -30,7 +30,8 @@ from flask_compress import Compress
 from matplotlib.ticker import FuncFormatter
 from datetime import datetime
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
+from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache   
+from matplotlib import rcParams
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -39,7 +40,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 os.environ["MPLBACKEND"] = "Agg"
 os.environ["MPLCONFIGDIR"] = "/tmp"
@@ -589,6 +590,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
     # --- Plotting ---
     try:
+         
         # Create the plot using subplots for better control over layout
         fig, axes = plt.subplots(
             nrows=len(telemetry_metrics),  # Match number of metrics
@@ -600,8 +602,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         fig.patch.set_facecolor("#111")
 
         # Font settings
-        label_font = {"fontsize": 16, "color": "white"}
-        title_font = {"fontsize": 24, "color": "white"}
+        label_font = {"fontsize": 16, "color": "white",   "font-family": "Orbitron"}
 
         # Plot throttle
         axes[0].plot(
@@ -846,6 +847,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 top_moments = moments[:3]
 
                 subplot_names = ["Throttle", "Brake", "RPM", "Speed"]
+         
                 logging.info(
                     f"🏁 {subplot_names[subplot_idx]} plot: {len(top_moments)} unique moments"
                 )
@@ -1017,9 +1019,9 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
         # Add title
         sup_title = f"{drv1_abbr} {drv2_abbr} – {session.event['EventName']} {session.event.year} {session.name}"
-        # plt.suptitle(sup_title, **title_font)  # ❌ Remove this line
-        plt.tight_layout()
-        # plt.subplots_adjust(top=0.93)  # ❌ Remove this line too
+       
+        # plt.tight_layout()
+       
 
         # Save to file instead of buffer
         plot_path = "static/plot.png"
@@ -1028,7 +1030,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             format="png",
             facecolor=fig.get_facecolor(),
             bbox_inches="tight",
-            dpi=180,
+            dpi=150,
         )
         plt.close()
 
@@ -1149,4 +1151,5 @@ def metrics():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)
+    # Development mode only - production uses Gunicorn
+    app.run(host="0.0.0.0", port=8080, debug=False)

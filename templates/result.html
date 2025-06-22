@@ -129,6 +129,10 @@
           display: none;
           width: 420px;
           height: 650px;
+          min-width: 300px;
+          min-height: 400px;
+          max-width: 800px;
+          max-height: 900px;
           background: linear-gradient(
             135deg,
             rgba(26, 26, 26, 0.95) 0%,
@@ -140,10 +144,12 @@
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
           overflow: hidden;
           flex-direction: column;
+          resize: both;
         "
       >
         <!-- Chat Header -->
         <div
+          id="chatHeader"
           style="
             padding: 16px;
             background: linear-gradient(
@@ -152,6 +158,8 @@
               rgba(0, 0, 0, 0.4) 100%
             );
             border-bottom: 1px solid rgba(255, 107, 107, 0.2);
+            cursor: move;
+            user-select: none;
           "
         >
           <div
@@ -228,6 +236,19 @@
                 "
               >
                 🗑️
+              </button>
+              <button
+                onclick="minimizeChat()"
+                style="
+                  background: rgba(255, 255, 255, 0.1);
+                  border: none;
+                  color: rgba(255, 255, 255, 0.7);
+                  padding: 6px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                "
+              >
+                ─
               </button>
               <button
                 onclick="closeChat()"
@@ -671,6 +692,40 @@
         display: flex !important;
       }
 
+      #chatContainer:hover {
+        resize: both;
+      }
+
+      #chatContainer {
+        resize: both;
+        overflow: auto;
+      }
+
+      /* Resize handle styling */
+      #chatContainer::-webkit-resizer {
+        background: linear-gradient(45deg, transparent 40%, rgba(255, 107, 107, 0.5) 50%, transparent 60%);
+        border-radius: 0 0 20px 0;
+      }
+
+      /* Custom scrollbar for chat messages */
+      #chatMessages::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      #chatMessages::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+      }
+
+      #chatMessages::-webkit-scrollbar-thumb {
+        background: rgba(255, 107, 107, 0.6);
+        border-radius: 3px;
+      }
+
+      #chatMessages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 107, 107, 0.8);
+      }
+
       @media (max-width: 768px) {
         #f1-chat-widget {
           bottom: 16px !important;
@@ -680,6 +735,7 @@
           width: calc(100vw - 32px) !important;
           height: calc(100vh - 100px) !important;
           max-width: 400px !important;
+          resize: none !important;
         }
       }
 
@@ -716,7 +772,10 @@
         // F1 chat system with telemetry data access
         let isConnected = false;
         let isExpanded = false;
+        let isMinimized = false;
         let messages = [];
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
 
         // Plot context with telemetry data
         window.f1PlotContext = {
@@ -766,6 +825,7 @@
 
         document.addEventListener('DOMContentLoaded', function() {
           setupEventListeners();
+          setupDragFunctionality();
           checkConnection();
           setTimeout(updateWelcomeScreenWithRealData, 100);
         });
@@ -1096,6 +1156,75 @@
           const indicator = document.getElementById('typingIndicator');
           if (indicator) {
             indicator.remove();
+          }
+        }
+
+        function setupDragFunctionality() {
+          const chatContainer = document.getElementById('chatContainer');
+          const chatHeader = document.getElementById('chatHeader');
+
+          chatHeader.addEventListener('mousedown', function(e) {
+            // Don't start drag if clicking on buttons
+            if (e.target.tagName === 'BUTTON') return;
+            
+            isDragging = true;
+            const rect = chatContainer.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            
+            chatContainer.style.cursor = 'grabbing';
+            e.preventDefault();
+          });
+
+          document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            
+            const x = e.clientX - dragOffset.x;
+            const y = e.clientY - dragOffset.y;
+            
+            // Constrain to viewport
+            const rect = chatContainer.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width;
+            const maxY = window.innerHeight - rect.height;
+            
+            const constrainedX = Math.max(0, Math.min(x, maxX));
+            const constrainedY = Math.max(0, Math.min(y, maxY));
+            
+            chatContainer.style.position = 'fixed';
+            chatContainer.style.left = constrainedX + 'px';
+            chatContainer.style.top = constrainedY + 'px';
+            chatContainer.style.right = 'auto';
+            chatContainer.style.bottom = 'auto';
+          });
+
+          document.addEventListener('mouseup', function() {
+            if (isDragging) {
+              isDragging = false;
+              chatContainer.style.cursor = 'move';
+            }
+          });
+        }
+
+        function minimizeChat() {
+          const chatContainer = document.getElementById('chatContainer');
+          const chatMessages = document.getElementById('chatMessages');
+          const inputArea = document.getElementById('inputArea');
+          const contextMode = document.getElementById('contextMode');
+          
+          isMinimized = !isMinimized;
+          
+          if (isMinimized) {
+            chatContainer.style.height = '60px';
+            chatContainer.style.resize = 'none';
+            chatMessages.style.display = 'none';
+            inputArea.style.display = 'none';
+            contextMode.style.display = 'none';
+          } else {
+            chatContainer.style.height = '650px';
+            chatContainer.style.resize = 'both';
+            chatMessages.style.display = 'block';
+            inputArea.style.display = 'block';
+            contextMode.style.display = 'block';
           }
         }
 

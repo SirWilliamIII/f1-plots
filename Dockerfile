@@ -29,9 +29,10 @@ COPY . .
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV MATPLOTLIB_BACKEND=Agg
+ENV PORT=8080
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --timeout 900 --workers 1 app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 900 --workers 1 app:app"]
