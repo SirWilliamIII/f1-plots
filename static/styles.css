@@ -855,6 +855,36 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Add these styles at an appropriate location in your CSS file */
+.plot-section {
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.plot-container {
+  width: 100%;
+  max-width: 1200px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.plot-container img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.plot-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
 /* Plot Section - Takes up 95% of viewport */
 .plot-section {
   display: flex;
@@ -985,30 +1015,4 @@ body {
 /* Loading state */
 .plot-loading {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 1rem;
-  opacity: 0.7;
-}
-
-/* Subtle background effect */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(
-      circle at 20% 80%,
-      rgba(255, 107, 107, 0.05) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 80% 20%,
-      rgba(78, 205, 196, 0.05) 0%,
-      transparent 50%
-    );
-  pointer-events: none;
-  z-index: -1;
 }

@@ -18,7 +18,7 @@ def classify_moment(
     session_type: str = "Q"  # ✅ NEW: Add session context
 ) -> str:
     """
-    Classify racing moments where one driver gains advantage over another.
+    Classify racing moments where one driver gains an advantage over another.
 
     Parameters:
     - session_type: "Q" for Qualifying, "R" for Race, affects which moments are relevant
@@ -165,3 +165,84 @@ def classify_moment(
 
     # Default
     return "Minor technique difference"
+
+def extract_telemetry_context(session, driver1, driver2):
+    """Extract telemetry context for the AI model, focusing on key performance metrics.
+
+    Args:
+        session: FastF1 session object
+        driver1: First driver abbreviation
+        driver2: Second driver abbreviation
+
+    Returns:
+        dict: Context containing race info, driver data, and performance metrics
+    """
+    # Extract lap data
+    drv1_laps = session.laps.pick_driver(driver1)
+    drv2_laps = session.laps.pick_driver(driver2)
+
+    # Get fastest laps
+    drv1_fastest = drv1_laps.pick_fastest()
+    drv2_fastest = drv2_laps.pick_fastest()
+
+    # Get telemetry data
+    drv1_tel = drv1_fastest.get_telemetry()
+    drv2_tel = drv2_fastest.get_telemetry()
+
+    # Get driver info
+    drv1_info = session.get_driver(driver1)
+    drv2_info = session.get_driver(driver2)
+
+    # Build context dictionary with all relevant data
+    try:
+        circuit_info = session.get_circuit_info()
+        track_length = float(circuit_info.CircuitLength) if hasattr(circuit_info, 'CircuitLength') else 0.0
+    except:
+        track_length = 0.0
+
+    context = {
+        "race_info": {
+            "year": session.event.year,
+            "race_name": session.event['EventName'],
+            "session_type": "Race" if session.name == "R" else "Qualifying",
+            "track_length": track_length
+        },
+        "driver1": {
+            "name": driver1,
+            "full_name": drv1_info['BroadcastName'],
+            "lap_time": float(drv1_fastest['LapTime'].total_seconds()),
+            "max_speed": float(drv1_tel['Speed'].max()),
+            "avg_throttle": float(drv1_tel['Throttle'].mean())
+        },
+        "driver2": {
+            "name": driver2,
+            "full_name": drv2_info['BroadcastName'],
+            "lap_time": float(drv2_fastest['LapTime'].total_seconds()),
+            "max_speed": float(drv2_tel['Speed'].max()),
+            "avg_throttle": float(drv2_tel['Throttle'].mean())
+        }
+    }
+
+    # Add comparison data
+    faster_time = min(context["driver1"]["lap_time"], context["driver2"]["lap_time"])
+    context["comparison"] = {
+        "faster_driver": driver1 if context["driver1"]["lap_time"] == faster_time else driver2,
+        "lap_time_delta": abs(context["driver1"]["lap_time"] - context["driver2"]["lap_time"]),
+        "speed_difference": abs(context["driver1"]["max_speed"] - context["driver2"]["max_speed"])
+    }
+
+    # Add sector analysis
+    sectors = []
+    for i in range(1, 4):
+        s1_time = float(drv1_fastest[f'Sector{i}Time'].total_seconds())
+        s2_time = float(drv2_fastest[f'Sector{i}Time'].total_seconds())
+        sectors.append({
+            "sector": i,
+            "driver1_time": s1_time,
+            "driver2_time": s2_time,
+            "delta": abs(s1_time - s2_time),
+            "faster_driver": driver1 if s1_time < s2_time else driver2
+        })
+    context["sectors"] = sectors
+
+    return context

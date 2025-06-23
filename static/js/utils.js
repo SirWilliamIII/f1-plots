@@ -17,17 +17,17 @@ class F1Utils {
 
   static getDriverColor(driverAbbr) {
     const colors = {
-      VER: "#0600EF",
-      PER: "#0600EF",
-      HAM: "#00D2BE",
-      RUS: "#00D2BE",
-      LEC: "#DC143C",
-      SAI: "#DC143C",
-      NOR: "#FF8700",
-      PIA: "#FF8700",
-      ALO: "#006F62",
-      STR: "#006F62",
-      // Add more driver colors as needed
+      VER: "#1f77b4",
+      PER: "#1f77b4",
+      HAM: "#17becf",
+      RUS: "#17becf",
+      LEC: "#d62728",
+      SAI: "#d62728",
+      NOR: "#ff7f0e",
+      PIA: "#ff7f0e",
+      ALO: "#bcbd22",
+      STR: "#bcbd22",
+      ALB: "9467bd"
     };
     return colors[driverAbbr] || "#FFFFFF";
   }
