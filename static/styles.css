@@ -326,7 +326,6 @@ body {
 }
 
 #index-container {
-
   max-width: 900px;
   margin: 10vh auto 0 auto;
   padding: 40px 20px;
@@ -761,7 +760,10 @@ body {
   height: 100vh;
   display: grid;
   grid-template-rows: 50px 1fr; /* Tiny header, massive plot */
-  max-width: 100%;
+  max-width: 100vw;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
 }
 
 /* Ultra-compact header with everything in one line */
@@ -856,27 +858,52 @@ body {
 }
 
 /* Add these styles at an appropriate location in your CSS file */
-.plot-section {
-  width: 100%;
-  padding: 20px;
+.main-content-flex {
+  width: 100vw;
+  height: 100%;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
+}
+
+.plot-section {
+  flex: 3 1 0;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
 }
 
 .plot-container {
   width: 100%;
-  max-width: 1200px;
-  background: var(--surface-alt);
+  max-width: 95vw;
+  max-height: 90vh;
+  height: auto;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  background: #18191a;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 .plot-container img {
   width: 100%;
   height: auto;
+  max-width: 95vw;
+  max-height: 90vh;
   display: block;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  padding: 0;
 }
 
 .plot-loading {
@@ -885,32 +912,35 @@ body {
   color: var(--muted);
 }
 
-/* Plot Section - Takes up 95% of viewport */
-.plot-section {
+.driver-info-sidebar {
+  flex: 1 1 320px;
+  min-width: 280px;
+  max-width: 400px;
+  background: rgba(30, 30, 30, 0.95);
+  color: #fff;
+  padding: 24px 18px;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 10px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.2);
+  flex-direction: column;
+  gap: 32px;
+  box-shadow: -2px 0 16px rgba(0, 0, 0, 0.15);
 }
 
-.plot-container {
+.lap-time-delta {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 1.25em;
+  font-weight: bold;
+  color: #ffe600;
+  letter-spacing: 0.5px;
   width: 100%;
-  height: 100%;
+}
+
+.f1-ai-btn-container {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.plot-container img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 4px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  margin-bottom: 40px;
 }
 
 /* Responsive Design */

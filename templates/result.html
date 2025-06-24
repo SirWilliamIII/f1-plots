@@ -34,29 +34,6 @@
         <div class="race-info" style="margin-bottom: 0">
           {{ race_title }} • {{ session_name }}
         </div>
-        <div class="driver-time">
-          <span class="driver-name">{{ drv1_abbr }}</span>
-          <span class="lap-time">{{ drv1_lap_time }}</span>
-          <div class="sector-times">
-            {% for sector in drv1_sectors %}
-            <span class="sector-time" style="color: {{ sector.color }};">
-              S{{ loop.index }}: {{ sector.time }}
-            </span>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="vs-separator"></div>
-        <div class="driver-time">
-          <span class="driver-name driver2">{{ drv2_abbr }}</span>
-          <span class="lap-time">{{ drv2_lap_time }}</span>
-          <div class="sector-times">
-            {% for sector in drv2_sectors %}
-            <span class="sector-time" style="color: {{ sector.color }};">
-              S{{ loop.index }}: {{ sector.time }}
-            </span>
-            {% endfor %}
-          </div>
-        </div>
         <div class="actions">
           <a href="/" class="btn btn-primary">Generate New Plot</a>
           <button onclick="downloadPDF()" class="btn btn-secondary">
@@ -65,63 +42,188 @@
         </div>
       </div>
 
-      <!-- Plot Section -->
-      <div class="plot-section">
-        <div class="plot-container">
-          {% if plot_path %}
-          <img
-            src="{{ plot_path }}"
-            alt="Telemetry Comparison"
-            loading="lazy"
-          />
-          {% else %}
-          <div class="plot-loading">Loading telemetry data...</div>
-          {% endif %}
+      <!-- Main Content: Plot left, Driver Info right -->
+      <div
+        class="main-content-flex"
+        style="display: flex; flex-direction: row; width: 100%; height: 100%"
+      >
+        <!-- Plot Section (left) -->
+        <div class="plot-section" style="flex: 3 1 0; min-width: 0">
+          <div class="plot-container">
+            {% if plot_path %}
+            <img
+              src="{{ plot_path }}"
+              alt="Telemetry Comparison"
+              loading="lazy"
+            />
+            {% else %}
+            <div class="plot-loading">Loading telemetry data...</div>
+            {% endif %}
+          </div>
+        </div>
+        <!-- Driver Info Sidebar (right) -->
+        <div
+          class="driver-info-sidebar"
+          style="
+            flex: 1 1 320px;
+            min-width: 280px;
+            max-width: 400px;
+            background: rgba(30, 30, 30, 0.95);
+            color: #fff;
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            box-shadow: -2px 0 16px rgba(0, 0, 0, 0.15);
+          "
+        >
+          <div
+            class="driver-time"
+            style="display: flex; flex-direction: column; gap: 6px"
+          >
+            <div
+              style="
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+              "
+            >
+              <span class="driver-name">{{ drv1_abbr }}</span>
+              <span class="lap-time">{{ drv1_lap_time }}</span>
+            </div>
+            <div
+              class="sector-times"
+              style="
+                display: flex;
+                flex-direction: row;
+                gap: 8px;
+                margin-left: 2px;
+              "
+            >
+              {% for sector in drv1_sectors %}
+              <span
+                class="sector-time"
+                style="background: {{ sector.bg_color }}; color: {{ sector.color }}; border-radius: 999px; padding: 4px 12px; font-weight: bold; font-size: 1.05em; box-shadow: 0 2px 8px rgba(0,0,0,0.10); display: inline-block; margin-bottom: 2px;"
+              >
+                S{{ loop.index }}: {{ sector.time }}
+              </span>
+              {% endfor %}
+            </div>
+          </div>
+          <div
+            class="driver-time"
+            style="display: flex; flex-direction: column; gap: 6px"
+          >
+            <div
+              style="
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+              "
+            >
+              <span class="driver-name driver2">{{ drv2_abbr }}</span>
+              <span class="lap-time">{{ drv2_lap_time }}</span>
+            </div>
+            <div
+              class="sector-times"
+              style="
+                display: flex;
+                flex-direction: row;
+                gap: 8px;
+                margin-left: 2px;
+              "
+            >
+              {% for sector in drv2_sectors %}
+              <span
+                class="sector-time"
+                style="background: {{ sector.bg_color }}; color: {{ sector.color }}; border-radius: 999px; padding: 4px 12px; font-weight: bold; font-size: 1.05em; box-shadow: 0 2px 8px rgba(0,0,0,0.10); display: inline-block; margin-bottom: 2px;"
+              >
+                S{{ loop.index }}: {{ sector.time }}
+              </span>
+              {% endfor %}
+            </div>
+          </div>
+          <!-- Lap time delta label below driver info -->
+          <div
+            class="lap-time-delta"
+            style="
+              margin-top: 32px;
+              text-align: center;
+              font-size: 1.25em;
+              font-weight: bold;
+              color: #ffe600;
+              letter-spacing: 0.5px;
+            "
+          >
+            {{ faster_driver }} faster by {{ '%.3f'|format(delta) }}s
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- F1 AI Chat Widget - FLOATING OVERLAY -->
-    <div
-      id="f1-chat-widget"
-      style="
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 1000;
-        font-family: 'Rajdhani', sans-serif;
-      "
-    >
-      <button
-        id="chatToggleBtn"
+      <!-- F1 AI Chat Widget - FLOATING OVERLAY -->
+      <div
+        class="f1-ai-btn-container"
         style="
-          background: linear-gradient(45deg, #ff0000, #ff6b6b);
-          color: white;
-          border: none;
-          border-radius: 50px;
-          padding: 16px 20px;
-          box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);
-          cursor: pointer;
-          transition: all 0.3s ease;
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          z-index: 1000;
+          width: 240px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 8px;
-          font-weight: bold;
-          font-size: 14px;
+          font-family: 'Rajdhani', sans-serif;
         "
       >
-        <span>🏎️</span>
-        <span>F1 AI</span>
-        <div
-          class="pulse"
+        <button
+          id="chatToggleBtn"
           style="
-            width: 12px;
-            height: 12px;
-            background: #fbbf24;
-            border-radius: 50%;
+            background: linear-gradient(45deg, #ff0000, #ff6b6b);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            font-size: 14px;
           "
-        ></div>
-      </button>
+        >
+          <span>🏎️</span>
+          <span>F1 AI</span>
+          <div
+            class="pulse"
+            style="
+              width: 12px;
+              height: 12px;
+              background: #fbbf24;
+              border-radius: 50%;
+            "
+          ></div>
+        </button>
+      </div>
+      <div
+        style="
+          position: fixed;
+          bottom: 8px;
+          right: 24px;
+          z-index: 999;
+          font-family: 'Rajdhani', sans-serif;
+          font-size: 1em;
+          color: #ccc;
+          text-align: right;
+          max-width: 320px;
+        "
+      >
+        💡 I can analyze the current telemetry plot: {{ race_title }} • {{
+        session_name }}
+      </div>
 
       <div
         id="chatContainer"
@@ -145,6 +247,9 @@
           overflow: hidden;
           flex-direction: column;
           resize: both;
+          position: fixed;
+          bottom: 80px;
+          right: 24px;
         "
       >
         <!-- Chat Header -->
@@ -552,8 +657,6 @@
         </div>
 
         <!-- Chat Input -->
-
-        <!-- Chat Input -->
         <div
           style="
             padding: 16px;
@@ -703,7 +806,12 @@
 
       /* Resize handle styling */
       #chatContainer::-webkit-resizer {
-        background: linear-gradient(45deg, transparent 40%, rgba(255, 107, 107, 0.5) 50%, transparent 60%);
+        background: linear-gradient(
+          45deg,
+          transparent 40%,
+          rgba(255, 107, 107, 0.5) 50%,
+          transparent 60%
+        );
         border-radius: 0 0 20px 0;
       }
 
@@ -1166,30 +1274,30 @@
           chatHeader.addEventListener('mousedown', function(e) {
             // Don't start drag if clicking on buttons
             if (e.target.tagName === 'BUTTON') return;
-            
+
             isDragging = true;
             const rect = chatContainer.getBoundingClientRect();
             dragOffset.x = e.clientX - rect.left;
             dragOffset.y = e.clientY - rect.top;
-            
+
             chatContainer.style.cursor = 'grabbing';
             e.preventDefault();
           });
 
           document.addEventListener('mousemove', function(e) {
             if (!isDragging) return;
-            
+
             const x = e.clientX - dragOffset.x;
             const y = e.clientY - dragOffset.y;
-            
+
             // Constrain to viewport
             const rect = chatContainer.getBoundingClientRect();
             const maxX = window.innerWidth - rect.width;
             const maxY = window.innerHeight - rect.height;
-            
+
             const constrainedX = Math.max(0, Math.min(x, maxX));
             const constrainedY = Math.max(0, Math.min(y, maxY));
-            
+
             chatContainer.style.position = 'fixed';
             chatContainer.style.left = constrainedX + 'px';
             chatContainer.style.top = constrainedY + 'px';
@@ -1210,9 +1318,9 @@
           const chatMessages = document.getElementById('chatMessages');
           const inputArea = document.getElementById('inputArea');
           const contextMode = document.getElementById('contextMode');
-          
+
           isMinimized = !isMinimized;
-          
+
           if (isMinimized) {
             chatContainer.style.height = '60px';
             chatContainer.style.resize = 'none';

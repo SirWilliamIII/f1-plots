@@ -32,6 +32,7 @@ from datetime import datetime
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
 from matplotlib import rcParams
+import matplotlib.patheffects as pe
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -433,6 +434,8 @@ def index():
                     drv2_lap_time_str,
                     drv1_sectors,
                     drv2_sectors,
+                    faster_driver,
+                    delta,
                 ) = compare_fastest_laps(session, driver1, driver2)
                 last_plot_buf = plot_path
 
@@ -457,6 +460,8 @@ def index():
                     session_name=session_name,  # ✅ NEW
                     drv1_sectors=drv1_sectors,
                     drv2_sectors=drv2_sectors,
+                    faster_driver=faster_driver,
+                    delta=delta,
                 )
             except Exception as e:
                 logging.error(f"[ERROR] Failed to generate plot: {e}")
@@ -559,26 +564,6 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv1_sector_times = [drv1_fastest[f"Sector{i}Time"] for i in range(1, 4)]
     drv2_sector_times = [drv2_fastest[f"Sector{i}Time"] for i in range(1, 4)]
 
-    # Calculate cumulative sector ends
-    drv1_sector_ends = []
-    cum = 0.0
-    for s in drv1_sector_times:
-        if pd.isnull(s):
-            drv1_sector_ends.append(None)
-        else:
-            cum += s.total_seconds()
-            drv1_sector_ends.append(cum)
-
-    # Prepare sector time strings
-    drv1_sector_strs = [
-        f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else ""
-        for i, s in enumerate(drv1_sector_times)
-    ]
-    drv2_sector_strs = [
-        f"S{i+1}: {s.total_seconds():.3f}s" if not pd.isnull(s) else ""
-        for i, s in enumerate(drv2_sector_times)
-    ]
-
     # Create common distance array for comparison
     common_dist = np.linspace(
         max(drv1_tel["Distance"].min(), drv2_tel["Distance"].min()),
@@ -604,349 +589,192 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     telemetry_metrics = ["Throttle", "Brakes", "RPM", "Speed"]
 
     # --- Plotting ---
+    rcParams['font.family'] = 'DejaVu Sans'
+    fig, axes = plt.subplots(
+        nrows=len(telemetry_metrics),
+        ncols=1,
+        figsize=(22, 16),  # Much wider and taller
+        sharex=True,
+        gridspec_kw={'hspace': 0.25, 'top': 0.98, 'bottom': 0.07, 'left': 0.07, 'right': 0.98}
+    )
+    fig.subplots_adjust(hspace=0.18)
+    fig.patch.set_facecolor("#111")
+
+    label_font = {"fontsize": 16, "color": "white", "fontweight": "bold"}
+    line_effects = [pe.Stroke(linewidth=4, foreground="#222"), pe.Normal()]
+
+    # --- Add Turn Markers and Labels ---
     try:
-
-        # Create the plot using subplots for better control over layout
-        fig, axes = plt.subplots(
-            nrows=len(telemetry_metrics),  # Match number of metrics
-            ncols=1,
-            figsize=(14, 10),
-            sharex=True,
-            gridspec_kw={'hspace': 0.4}
-        )
-        fig.patch.set_facecolor("#111")
-
-        # Font settings
-        label_font = {"fontsize": 16, "color": "white"}
-
-        # Plot throttle
-        axes[0].plot(
-            drv1_tel["Time"].dt.total_seconds(),
-            drv1_tel["Throttle"],
-            color=drv1_color,
-            label=drv1_abbr,
-        )
-        axes[0].plot(
-            drv2_tel["Time"].dt.total_seconds(),
-            drv2_tel["Throttle"],
-            color=drv2_color,
-            label=drv2_abbr,
-        )
-        axes[0].set_ylabel("Throttle", **label_font)
-        axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white")
-
-        # Plot brakes
-        axes[1].plot(
-            drv1_tel["Time"].dt.total_seconds(), drv1_tel["Brake"], color=drv1_color
-        )
-        axes[1].plot(
-            drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color
-        )
-        axes[1].set_ylabel("Brakes", **label_font)
-
-        # Plot RPM
-        axes[2].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["RPM"], color=drv1_color)
-        axes[2].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["RPM"], color=drv2_color)
-        axes[2].set_ylabel("RPM", **label_font)
-
-        # Plot speed
-        axes[3].plot(
-            drv1_tel["Time"].dt.total_seconds(), drv1_tel["Speed"], color=drv1_color
-        )
-        axes[3].plot(
-            drv2_tel["Time"].dt.total_seconds(), drv2_tel["Speed"], color=drv2_color
-        )
-        axes[3].set_ylabel("Speed (km/h)", **label_font)
-        axes[3].set_xlabel("Lap Time", **label_font)
-
-        # 🔥 FIXED: Comprehensive moment detection WITHOUT duplicates
-        if key_idxs.size:
-
-            def get_best_subplot_for_moment(label):
-                """Determine which subplot and data to use based on moment type"""
-                label_lower = label.lower()
-
-                # Throttle-related moments
-                if any(
-                    keyword in label_lower
-                    for keyword in [
-                        "throttle",
-                        "exit",
-                        "acceleration",
-                        "power band",
-                        "gear selection",
-                        "corner exit",
-                    ]
-                ):
-                    return 0, "Throttle"
-
-                # Brake-related moments
-                elif any(
-                    keyword in label_lower
-                    for keyword in [
-                        "brake",
-                        "braking",
-                        "trail",
-                        "lock-up",
-                        "correction",
-                        "mistake",
-                        "wide",
-                    ]
-                ):
-                    return 1, "Brake"
-
-                # RPM-related moments
-                elif any(
-                    keyword in label_lower
-                    for keyword in [
-                        "rpm",
-                        "gear",
-                        "shifting",
-                        "power",
-                        "band",
-                        "performance advantage",
-                    ]
-                ):
-                    return 2, "RPM"
-
-                # Speed-related moments (default)
-                else:
-                    return 3, "Speed"
-
-            # Analyze more moments
-            num_moments = max(12, len(key_idxs) // 5)
-            top_swings = key_idxs[np.argsort(-np.abs(delta_diff[key_idxs]))][:num_moments]
-
-            # 🔥 NEW: Single pass analysis with smart subplot assignment
-            subplot_moments = {0: [], 1: [], 2: [], 3: []}  # throttle, brake, rpm, speed
-            used_times = set()  # Track which times we've already used
-
-            for idx in top_swings:
-                dist = common_dist[idx]
-                t1_time = np.interp(
-                    dist, drv1_tel["Distance"], drv1_tel["Time"].dt.total_seconds()
-                )
-                t2_time = np.interp(
-                    dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
-                )
-                avg_time = (t1_time + t2_time) / 2
-
-                # 🔥 SKIP if we've already used a moment within 2 seconds
-                if any(abs(avg_time - used_time) < 2.0 for used_time in used_times):
-                    continue
-
-                used_times.add(avg_time)
-
-                # Get telemetry values
-                t1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Throttle"])
-                t2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Throttle"])
-                b1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Brake"])
-                b2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Brake"])
-                v1 = np.interp(dist, drv1_tel["Distance"], drv1_tel["Speed"])
-                v2 = np.interp(dist, drv2_tel["Distance"], drv2_tel["Speed"])
-                r1 = (
-                    np.interp(dist, drv1_tel["Distance"], drv1_tel["RPM"])
-                    if "RPM" in drv1_tel.columns
-                    else 10000
-                )
-                r2 = (
-                    np.interp(dist, drv2_tel["Distance"], drv2_tel["RPM"])
-                    if "RPM" in drv2_tel.columns
-                    else 10000
-                )
-
-                # Get previous values
-                prev_dist = max(dist - 50, common_dist[0])
-                prev_t1 = np.interp(prev_dist, drv1_tel["Distance"], drv1_tel["Throttle"])
-                prev_t2 = np.interp(prev_dist, drv2_tel["Distance"], drv2_tel["Throttle"])
-                prev_b1 = np.interp(prev_dist, drv1_tel["Distance"], drv1_tel["Brake"])
-                prev_b2 = np.interp(prev_dist, drv2_tel["Distance"], drv2_tel["Brake"])
-                prev_v1 = np.interp(prev_dist, drv1_tel["Distance"], drv1_tel["Speed"])
-                prev_v2 = np.interp(prev_dist, drv2_tel["Distance"], drv2_tel["Speed"])
-                prev_r1 = (
-                    np.interp(prev_dist, drv1_tel["Distance"], drv1_tel["RPM"])
-                    if "RPM" in drv1_tel.columns
-                    else 10000
-                )
-                prev_r2 = (
-                    np.interp(prev_dist, drv2_tel["Distance"], drv2_tel["RPM"])
-                    if "RPM" in drv2_tel.columns
-                    else 10000
-                )
-
-                # 🔥 SMART: Create multiple labels for the same moment, assign to best subplot
-                primary_label = classify_moment(
-                    t1,
-                    t2,
-                    b1,
-                    b2,
-                    v1,
-                    v2,
-                    r1,
-                    r2,
-                    prev_t1,
-                    prev_t2,
-                    prev_b1,
-                    prev_b2,
-                    prev_v1,
-                    prev_v2,
-                    prev_r1,
-                    prev_r2,
-                    session_type=session.name,
-                )
-
-                # Create moment data
-                moment_data = {
-                    "time": avg_time,
-                    "values": (t1, t2, b1, b2, v1, v2, r1, r2),
-                    "significance": abs(delta_diff[idx]),
-                }
-
-                # 🔥 SMART ASSIGNMENT: Assign to the subplot that needs it most
-                primary_subplot, primary_data_type = get_best_subplot_for_moment(
-                    primary_label
-                )
-
-                # Check if we can create additional relevant labels for other subplots
-                additional_labels = []
-
-                # Brake analysis
+        circuit_info = session.get_circuit_info()
+        if hasattr(circuit_info, 'corners'):
+            corners = circuit_info.corners
+            for _, turn in corners.iterrows():
+                turn_num = str(turn['Number'])
+                turn_dist = turn['Distance']
                 if (
-                    max(b1, b2) > 0.1 and len(subplot_moments[1]) < 3
-                ):  # Brake subplot needs more
-                    brake_diff = abs(b1 - b2)
-                    if brake_diff > 0.05:
-                        additional_labels.append(
-                            (1, f"Brake difference ({brake_diff:.2f})", "Brake")
-                        )
-
-                # RPM analysis
-                if (
-                    abs(r1 - r2) > 500 and len(subplot_moments[2]) < 3
-                ):  # RPM subplot needs more
-                    rpm_diff = abs(r1 - r2)
-                    additional_labels.append(
-                        (2, f"RPM difference ({int(rpm_diff)} RPM)", "RPM")
+                    drv1_tel['Distance'].min() <= turn_dist <= drv1_tel['Distance'].max()
+                ):
+                    turn_time = np.interp(turn_dist, drv1_tel['Distance'], drv1_tel['Time'].dt.total_seconds())
+                    for ax in axes:
+                        ax.axvline(x=turn_time, color='white', alpha=0.18, linewidth=1, zorder=0)
+                    axes[0].text(
+                        turn_time,
+                        axes[0].get_ylim()[1] * 1.01,
+                        turn_num,
+                        ha='center', va='bottom',
+                        fontsize=11, fontweight='bold',
+                        color='white',
+                        bbox=dict(facecolor='#444', edgecolor='none', boxstyle='round,pad=0.2', alpha=0.7),
+                        zorder=10
                     )
-
-                # Throttle analysis
-                if (
-                    abs(t1 - t2) > 20 and len(subplot_moments[0]) < 3
-                ):  # Throttle subplot needs more
-                    throttle_diff = abs(t1 - t2)
-                    additional_labels.append(
-                        (0, f"Throttle difference ({throttle_diff:.1f}%)", "Throttle")
-                    )
-
-                # 🔥 ASSIGN to primary subplot first
-                moment_copy = moment_data.copy()
-                moment_copy["label"] = primary_label
-                moment_copy["data_type"] = primary_data_type
-                subplot_moments[primary_subplot].append(moment_copy)
-
-                # 🔥 ASSIGN additional labels to other subplots (only if they need more content)
-                for subplot_idx, label, data_type in additional_labels:
-                    if subplot_idx != primary_subplot:  # Don't duplicate on same subplot
-                        moment_copy = moment_data.copy()
-                        moment_copy["label"] = label
-                        moment_copy["data_type"] = data_type
-                        subplot_moments[subplot_idx].append(moment_copy)
-
-            # 🔥 ADD MOMENT ANNOTATIONS to subplots
-            for subplot_idx, moments in subplot_moments.items():
-                for moment in moments[:3]:  # Limit to 3 moments per subplot
-                    axes[subplot_idx].axvline(
-                        x=moment["time"],
-                        color="yellow",
-                        alpha=0.3,
-                        linestyle="--",
-                        linewidth=1,
-                    )
-                    axes[subplot_idx].annotate(
-                        moment["label"],
-                        xy=(moment["time"], 0.5),
-                        xytext=(10, 10),
-                        textcoords="offset points",
-                        fontsize=8,
-                        color="yellow",
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor="black", alpha=0.7),
-                        arrowprops=dict(arrowstyle="->", color="yellow", alpha=0.7),
-                    )
-
-        # 🔥 STYLING: Apply consistent styling to all subplots
-        for ax in axes:
-            ax.set_facecolor("#222")
-            ax.grid(True, alpha=0.2, color="white")
-            ax.tick_params(colors="white", labelsize=12)
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-            ax.spines["left"].set_color("white")
-            ax.spines["bottom"].set_color("white")
-
-        # 🔥 TITLE: Add comprehensive title
-        title_text = f"{session.event.year} {session.event['EventName']} - {drv1_abbr} vs {drv2_abbr}"
-        fig.suptitle(title_text, fontsize=18, color="white", fontweight="bold", y=0.98)
-
-        # 🔥 LAP TIME COMPARISON: Add lap time info
-        drv1_lap_time = drv1_fastest["LapTime"].total_seconds()
-        drv2_lap_time = drv2_fastest["LapTime"].total_seconds()
-        faster_driver = drv1_abbr if drv1_lap_time < drv2_lap_time else drv2_abbr
-        delta = abs(drv1_lap_time - drv2_lap_time)
-
-        time_info = f"{faster_driver} faster by {delta:.3f}s"
-        fig.text(0.5, 0.02, time_info, ha="center", fontsize=14, color="yellow", fontweight="bold")
-
-        # 🔥 SAVE PLOT to buffer
-        plot_buffer = BytesIO()
-        plt.savefig(
-            plot_buffer,
-            format="png",
-            dpi=150,
-            bbox_inches="tight",
-            facecolor="#111",
-            edgecolor="none",
-        )
-        plt.close(fig)
-        plot_buffer.seek(0)
-
-        # 🔥 RETURN values
-        drv1_lap_time_str = f"{drv1_lap_time:.3f}s"
-        drv2_lap_time_str = f"{drv2_lap_time:.3f}s"
-
-        # Prepare sector data
-        drv1_sectors = []
-        drv2_sectors = []
-
-        for i, (s1, s2) in enumerate(zip(drv1_sector_times, drv2_sector_times)):
-            # Determine color based on which driver was faster in this sector
-            if pd.isnull(s1) or pd.isnull(s2):
-                color = "#666"  # Gray for missing data
-            elif s1.total_seconds() < s2.total_seconds():
-                color = drv1_color
-            else:
-                color = drv2_color
-
-            drv1_sectors.append({
-                "time": f"{s1.total_seconds():.3f}s" if not pd.isnull(s1) else "N/A",
-                "color": color
-            })
-            drv2_sectors.append({
-                "time": f"{s2.total_seconds():.3f}s" if not pd.isnull(s2) else "N/A",
-                "color": color
-            })
-
-        return (
-            plot_buffer,
-            drv1_abbr,
-            drv1_lap_time_str,
-            drv2_abbr,
-            drv2_lap_time_str,
-            drv1_sectors,
-            drv2_sectors,
-        )
-
     except Exception as e:
-        logging.error(f"Error in compare_fastest_laps: {e}")
-        raise e
+        logging.warning(f"Could not add turn markers: {e}")
+
+    # Plot throttle
+    axes[0].plot(
+        drv1_tel["Time"].dt.total_seconds(),
+        drv1_tel["Throttle"],
+        color=drv1_color,
+        label=drv1_abbr,
+        linewidth=2.2,
+        path_effects=line_effects
+    )
+    axes[0].plot(
+        drv2_tel["Time"].dt.total_seconds(),
+        drv2_tel["Throttle"],
+        color=drv2_color,
+        label=drv2_abbr,
+        linewidth=2.2,
+        path_effects=line_effects
+    )
+    axes[0].set_ylabel("Throttle", **label_font)
+    axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white", framealpha=0.85, loc='upper right')
+
+    # Plot brakes
+    axes[1].plot(
+        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Brake"], color=drv1_color, linewidth=2.2, path_effects=line_effects
+    )
+    axes[1].plot(
+        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color, linewidth=2.2, path_effects=line_effects
+    )
+    axes[1].set_ylabel("Brakes", **label_font)
+
+    # Plot RPM
+    axes[2].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["RPM"], color=drv1_color, linewidth=2.2, path_effects=line_effects)
+    axes[2].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["RPM"], color=drv2_color, linewidth=2.2, path_effects=line_effects)
+    axes[2].set_ylabel("RPM", **label_font)
+
+    # Plot speed
+    axes[3].plot(
+        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Speed"], color=drv1_color, linewidth=2.2, path_effects=line_effects
+    )
+    axes[3].plot(
+        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Speed"], color=drv2_color, linewidth=2.2, path_effects=line_effects
+    )
+    axes[3].set_ylabel("Speed (km/h)", **label_font)
+    axes[3].set_xlabel("Lap Time", **label_font)
+
+    # Styling for all subplots
+    for ax in axes:
+        ax.set_facecolor("#222")
+        ax.grid(True, alpha=0.2, color="white")
+        ax.tick_params(colors="white", labelsize=12)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color("white")
+        ax.spines["bottom"].set_color("white")
+
+    # --- NEW: Get session best and personal best sector times ---
+    session_laps = session.laps
+    sector_session_bests = []
+    drv1_personal_bests = []
+    drv2_personal_bests = []
+    for i in range(1, 4):
+        # Session best (minimum sector time across all laps/drivers)
+        session_best = session_laps[f"Sector{i}Time"].min()
+        sector_session_bests.append(session_best.total_seconds() if pd.notnull(session_best) else None)
+        # Driver 1 personal best
+        drv1_best = drv1_laps[f"Sector{i}Time"].min()
+        drv1_personal_bests.append(drv1_best.total_seconds() if pd.notnull(drv1_best) else None)
+        # Driver 2 personal best
+        drv2_best = drv2_laps[f"Sector{i}Time"].min()
+        drv2_personal_bests.append(drv2_best.total_seconds() if pd.notnull(drv2_best) else None)
+
+    # Prepare sector data with correct coloring
+    drv1_sectors = []
+    drv2_sectors = []
+    for i, (s1, s2) in enumerate(zip(drv1_sector_times, drv2_sector_times)):
+        s1_time = s1.total_seconds() if not pd.isnull(s1) else None
+        s2_time = s2.total_seconds() if not pd.isnull(s2) else None
+        session_best = sector_session_bests[i]
+        drv1_best = drv1_personal_bests[i]
+        drv2_best = drv2_personal_bests[i]
+        # Driver 1 pill color
+        if s1_time is not None and s1_time == session_best:
+            bg_color_1 = "#a020f0"  # Purple
+        elif s1_time is not None and s1_time == drv1_best:
+            bg_color_1 = "#22c55e"  # Green
+        else:
+            bg_color_1 = "#fbbf24"  # Yellow
+        # Driver 2 pill color
+        if s2_time is not None and s2_time == session_best:
+            bg_color_2 = "#a020f0"  # Purple
+        elif s2_time is not None and s2_time == drv2_best:
+            bg_color_2 = "#22c55e"  # Green
+        else:
+            bg_color_2 = "#fbbf24"  # Yellow
+        # Text color: use team color for purple/green, dark for yellow
+        color_1 = drv1_color if bg_color_1 in ["#a020f0", "#22c55e"] else "#222"
+        color_2 = drv2_color if bg_color_2 in ["#a020f0", "#22c55e"] else "#222"
+        drv1_sectors.append({
+            "time": f"{s1_time:.3f}s" if s1_time is not None else "N/A",
+            "color": color_1,
+            "bg_color": bg_color_1,
+            "is_personal_best": s1_time == drv1_best if s1_time is not None else False,
+            "is_overall_best": s1_time == session_best if s1_time is not None else False
+        })
+        drv2_sectors.append({
+            "time": f"{s2_time:.3f}s" if s2_time is not None else "N/A",
+            "color": color_2,
+            "bg_color": bg_color_2,
+            "is_personal_best": s2_time == drv2_best if s2_time is not None else False,
+            "is_overall_best": s2_time == session_best if s2_time is not None else False
+        })
+
+    # 🔥 LAP TIME COMPARISON: Add lap time info
+    drv1_lap_time = drv1_fastest["LapTime"].total_seconds()
+    drv2_lap_time = drv2_fastest["LapTime"].total_seconds()
+    faster_driver = drv1_abbr if drv1_lap_time < drv2_lap_time else drv2_abbr
+    delta = abs(drv1_lap_time - drv2_lap_time)
+    time_info = f"{faster_driver} faster by {delta:.3f}s"
+
+    # 🔥 SAVE PLOT to buffer
+    plot_buffer = BytesIO()
+    plt.savefig(
+        plot_buffer,
+        format="png",
+        dpi=150,
+        bbox_inches="tight",
+        facecolor="#111",
+        edgecolor="none",
+    )
+    plt.close(fig)
+    plot_buffer.seek(0)
+
+    # 🔥 RETURN values
+    drv1_lap_time_str = f"{drv1_lap_time:.3f}s"
+    drv2_lap_time_str = f"{drv2_lap_time:.3f}s"
+
+    return (
+        plot_buffer,
+        drv1_abbr,
+        drv1_lap_time_str,
+        drv2_abbr,
+        drv2_lap_time_str,
+        drv1_sectors,
+        drv2_sectors,
+        faster_driver,
+        delta,
+    )
 
 
