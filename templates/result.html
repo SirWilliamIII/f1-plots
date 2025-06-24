@@ -31,12 +31,12 @@
     <div class="container">
       <!-- Ultra-compact header -->
       <div class="header">
-        <div class="race-info" style="margin-bottom: 0">
-          {{ race_title }} • {{ session_name }}
-        </div>
-        <div class="actions">
-          <a href="/" class="btn btn-primary">Generate New Plot</a>
-          <button onclick="downloadPDF()" class="btn btn-secondary">
+        <div class="header-content">
+          <span class="header-title"
+            >{{ race_title }} · {{ session_name }}</span
+          >
+          <a href="/" class="header-link">Generate New Plot</a>
+          <button onclick="window.print()" class="header-btn">
             Download PDF
           </button>
         </div>
@@ -62,101 +62,55 @@
           </div>
         </div>
         <!-- Driver Info Sidebar (right) -->
-        <div
-          class="driver-info-sidebar"
-          style="
-            flex: 1 1 320px;
-            min-width: 280px;
-            max-width: 400px;
-            background: rgba(30, 30, 30, 0.95);
-            color: #fff;
-            padding: 24px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 32px;
-            box-shadow: -2px 0 16px rgba(0, 0, 0, 0.15);
-          "
-        >
-          <div
-            class="driver-time"
-            style="display: flex; flex-direction: column; gap: 6px"
-          >
-            <div
-              style="
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                gap: 12px;
-              "
-            >
-              <span class="driver-name">{{ drv1_abbr }}</span>
-              <span class="lap-time">{{ drv1_lap_time }}</span>
-            </div>
-            <div
-              class="sector-times"
-              style="
-                display: flex;
-                flex-direction: row;
-                gap: 8px;
-                margin-left: 2px;
-              "
-            >
-              {% for sector in drv1_sectors %}
+        <div class="driver-info-sidebar">
+          <!-- Driver 1 F1 TV Panel -->
+          <div class="f1tv-driver-panel">
+            <div class="f1tv-header">
               <span
-                class="sector-time"
-                style="background: {{ sector.bg_color }}; color: {{ sector.color }}; border-radius: 999px; padding: 4px 12px; font-weight: bold; font-size: 1.05em; box-shadow: 0 2px 8px rgba(0,0,0,0.10); display: inline-block; margin-bottom: 2px;"
-              >
-                S{{ loop.index }}: {{ sector.time }}
+                class="f1tv-team-bar"
+                style="background: {{ drv1_team_color }}"
+              ></span>
+              <span class="f1tv-pos">{{ drv1_position }}</span>
+              <span class="f1tv-code">{{ drv1_abbr }}</span>
+              <span class="f1tv-lap-time">{{ drv1_lap_time }}</span>
+            </div>
+            <div class="f1tv-gap">
+              Gap to {{ leader_abbr }}: {{ drv1_lap_gap }}
+            </div>
+            <div class="f1tv-sectors">
+              {% for sector in drv1_sectors %}
+              <span class="f1tv-sector-pill {{ sector.f1_color }}">
+                {{ sector.time }}
+                <span class="f1tv-sector-gap">{{ sector.gap }}</span>
               </span>
               {% endfor %}
             </div>
           </div>
-          <div
-            class="driver-time"
-            style="display: flex; flex-direction: column; gap: 6px"
-          >
-            <div
-              style="
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                gap: 12px;
-              "
-            >
-              <span class="driver-name driver2">{{ drv2_abbr }}</span>
-              <span class="lap-time">{{ drv2_lap_time }}</span>
-            </div>
-            <div
-              class="sector-times"
-              style="
-                display: flex;
-                flex-direction: row;
-                gap: 8px;
-                margin-left: 2px;
-              "
-            >
-              {% for sector in drv2_sectors %}
+          <!-- Driver 2 F1 TV Panel -->
+          <div class="f1tv-driver-panel">
+            <div class="f1tv-header">
               <span
-                class="sector-time"
-                style="background: {{ sector.bg_color }}; color: {{ sector.color }}; border-radius: 999px; padding: 4px 12px; font-weight: bold; font-size: 1.05em; box-shadow: 0 2px 8px rgba(0,0,0,0.10); display: inline-block; margin-bottom: 2px;"
-              >
-                S{{ loop.index }}: {{ sector.time }}
+                class="f1tv-team-bar"
+                style="background: {{ drv2_team_color }}"
+              ></span>
+              <span class="f1tv-pos">{{ drv2_position }}</span>
+              <span class="f1tv-code">{{ drv2_abbr }}</span>
+              <span class="f1tv-lap-time">{{ drv2_lap_time }}</span>
+            </div>
+            <div class="f1tv-gap">
+              Gap to {{ leader_abbr }}: {{ drv2_lap_gap }}
+            </div>
+            <div class="f1tv-sectors">
+              {% for sector in drv2_sectors %}
+              <span class="f1tv-sector-pill {{ sector.f1_color }}">
+                {{ sector.time }}
+                <span class="f1tv-sector-gap">{{ sector.gap }}</span>
               </span>
               {% endfor %}
             </div>
           </div>
           <!-- Lap time delta label below driver info -->
-          <div
-            class="lap-time-delta"
-            style="
-              margin-top: 32px;
-              text-align: center;
-              font-size: 1.25em;
-              font-weight: bold;
-              color: #ffe600;
-              letter-spacing: 0.5px;
-            "
-          >
+          <div class="lap-time-delta">
             {{ faster_driver }} faster by {{ '%.3f'|format(delta) }}s
           </div>
         </div>
@@ -207,22 +161,6 @@
             "
           ></div>
         </button>
-      </div>
-      <div
-        style="
-          position: fixed;
-          bottom: 8px;
-          right: 24px;
-          z-index: 999;
-          font-family: 'Rajdhani', sans-serif;
-          font-size: 1em;
-          color: #ccc;
-          text-align: right;
-          max-width: 320px;
-        "
-      >
-        💡 I can analyze the current telemetry plot: {{ race_title }} • {{
-        session_name }}
       </div>
 
       <div

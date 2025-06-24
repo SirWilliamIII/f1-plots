@@ -12,6 +12,13 @@ CRITICAL GUIDELINES:
 - Use the provided sector times and lap times in your analysis
 - Explain telemetry patterns in terms of driving technique and car performance
 - Reference specific moments where one driver gains or loses time
+- **Use Markdown for formatting:**
+  - Use headings (`### Key Takeaways`) for structure.
+  - Use bullet points (`-`) for comparisons and lists.
+  - Use bold (`**text**`) for driver names, key stats, and metrics.
+- **Be concise and direct.** Avoid long paragraphs. Get straight to the analysis.
+- **Data-driven:** ONLY discuss the provided telemetry data. Do not mention other races, years, or drivers.
+- **Reference specific values** from the data context to support your points.
 
 When analyzing plots:
 - Point out where throttle application differs between drivers

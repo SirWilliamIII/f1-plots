@@ -1,5 +1,4 @@
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import os
@@ -33,6 +32,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
 from matplotlib import rcParams
 import matplotlib.patheffects as pe
+import math
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -399,6 +399,7 @@ def index():
         selected_session = None  # This gets set from form
 
         if request.method == "POST":
+            print("[DEBUG] POST request received on / route")
             # Always assign variables from form at the top
             selected_year = int(request.form.get("year"))
             selected_race = request.form.get("race")
@@ -409,6 +410,8 @@ def index():
             driver2 = request.form.get("driver2")
             session_type = session_map.get(selected_session, selected_session)
 
+            print(f"[DEBUG] Form data: year={selected_year}, race={selected_race}, session={selected_session}, driver1={driver1}, driver2={driver2}")
+
             # Validate form data
             if not (
                 selected_year
@@ -417,14 +420,17 @@ def index():
                 and driver2
                 and driver1 != driver2
             ):
+                print("[DEBUG] Invalid form data, rendering error.html")
                 return render_template(
                     "error.html", error_message="Missing or invalid form data."
                 )
 
             try:
+                print("[DEBUG] Attempting to get session...")
                 session = session_manager.get_session(
                     selected_year, selected_race, session_type
                 )
+                print("[DEBUG] Session loaded successfully")
                 # Use session manager directly here too - FIXED
                 (
                     plot_path,
@@ -436,18 +442,28 @@ def index():
                     drv2_sectors,
                     faster_driver,
                     delta,
+                    drv1_team_color,
+                    drv1_position,
+                    drv1_lap_gap,
+                    drv2_team_color,
+                    drv2_position,
+                    drv2_lap_gap,
+                    leader_abbr,
                 ) = compare_fastest_laps(session, driver1, driver2)
+                print("[DEBUG] compare_fastest_laps executed successfully")
                 last_plot_buf = plot_path
 
                 # 🔥 NEW: Create race title for header
                 current_telemetry_context = extract_telemetry_context(
                     session, driver1, driver2
                 )
+                print("[DEBUG] Telemetry context extracted")
 
                 race_title = f"{session.event.year} {session.event['EventName']}"
                 driver_comparison = f"{drv1_abbr}  {drv2_abbr}"
                 session_name = "Qualifying" if session_type == "Q" else "Race"
 
+                # Only use the values returned from compare_fastest_laps
                 return render_template(
                     "result.html",
                     plot_path="/plot.png",
@@ -462,8 +478,18 @@ def index():
                     drv2_sectors=drv2_sectors,
                     faster_driver=faster_driver,
                     delta=delta,
+                    drv1_team_color=drv1_team_color,
+                    drv1_position=drv1_position,
+                    drv1_lap_gap=drv1_lap_gap,
+                    drv2_team_color=drv2_team_color,
+                    drv2_position=drv2_position,
+                    drv2_lap_gap=drv2_lap_gap,
+                    leader_abbr=leader_abbr,
                 )
             except Exception as e:
+                import traceback
+                print("[ERROR] Exception occurred during telemetry comparison:", e)
+                traceback.print_exc()
                 logging.error(f"[ERROR] Failed to generate plot: {e}")
                 return render_template(
                     "error.html",
@@ -537,6 +563,15 @@ def initialize_data():
 initialize_data()
 
 
+def safe_int(val, default=0):
+    try:
+        if val is None or (isinstance(val, float) and math.isnan(val)):
+            return default
+        return int(val)
+    except Exception:
+        return default
+
+
 def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     """Generate telemetry comparison plot for two drivers"""
 
@@ -563,6 +598,11 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     # Calculate sector times
     drv1_sector_times = [drv1_fastest[f"Sector{i}Time"] for i in range(1, 4)]
     drv2_sector_times = [drv2_fastest[f"Sector{i}Time"] for i in range(1, 4)]
+
+    # Fix: Define session_best_sector_times for sector gap calculations
+    session_best_sector_times = [
+        session.laps[f"Sector{i}Time"].min() for i in range(1, 4)
+    ]
 
     # Create common distance array for comparison
     common_dist = np.linspace(
@@ -630,6 +670,36 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     except Exception as e:
         logging.warning(f"Could not add turn markers: {e}")
 
+    # --- Add Sector Split Markers (restyled, labeled) ---
+    try:
+        # Sector 2 starts at end of sector 1, sector 3 at end of sector 2
+        s2_start = drv1_fastest['Sector1Time'].total_seconds()
+        s3_start = s2_start + drv1_fastest['Sector2Time'].total_seconds()
+        for ax in axes:
+            ax.axvline(x=s2_start, color='#fff', linewidth=2.2, alpha=0.32, linestyle='--', zorder=2)
+            ax.axvline(x=s3_start, color='#fff', linewidth=2.2, alpha=0.32, linestyle='--', zorder=2)
+        # Add S2 and S3 labels above the lines on axes[0]
+        ylim = axes[0].get_ylim()
+        label_y = ylim[1] + (ylim[1] - ylim[0]) * 0.04
+        axes[0].text(
+            s2_start, label_y, 'S2',
+            ha='center', va='bottom',
+            fontsize=11, fontweight='bold',
+            color='white',
+            bbox=dict(facecolor='#222', edgecolor='none', boxstyle='round,pad=0.18', alpha=0.85),
+            zorder=10
+        )
+        axes[0].text(
+            s3_start, label_y, 'S3',
+            ha='center', va='bottom',
+            fontsize=11, fontweight='bold',
+            color='white',
+            bbox=dict(facecolor='#222', edgecolor='none', boxstyle='round,pad=0.18', alpha=0.85),
+            zorder=10
+        )
+    except Exception as e:
+        logging.warning(f"Could not add sector split markers: {e}")
+
     # Plot throttle
     axes[0].plot(
         drv1_tel["Time"].dt.total_seconds(),
@@ -684,42 +754,25 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         ax.spines["left"].set_color("white")
         ax.spines["bottom"].set_color("white")
 
-    # --- NEW: Get session best and personal best sector times ---
-    session_laps = session.laps
-    sector_session_bests = []
-    drv1_personal_bests = []
-    drv2_personal_bests = []
-    for i in range(1, 4):
-        # Session best (minimum sector time across all laps/drivers)
-        session_best = session_laps[f"Sector{i}Time"].min()
-        sector_session_bests.append(session_best.total_seconds() if pd.notnull(session_best) else None)
-        # Driver 1 personal best
-        drv1_best = drv1_laps[f"Sector{i}Time"].min()
-        drv1_personal_bests.append(drv1_best.total_seconds() if pd.notnull(drv1_best) else None)
-        # Driver 2 personal best
-        drv2_best = drv2_laps[f"Sector{i}Time"].min()
-        drv2_personal_bests.append(drv2_best.total_seconds() if pd.notnull(drv2_best) else None)
-
     # Prepare sector data with correct coloring
     drv1_sectors = []
     drv2_sectors = []
     for i, (s1, s2) in enumerate(zip(drv1_sector_times, drv2_sector_times)):
+        sector_num = i + 1
         s1_time = s1.total_seconds() if not pd.isnull(s1) else None
         s2_time = s2.total_seconds() if not pd.isnull(s2) else None
-        session_best = sector_session_bests[i]
-        drv1_best = drv1_personal_bests[i]
-        drv2_best = drv2_personal_bests[i]
+        session_best = session_best_sector_times[i]
         # Driver 1 pill color
         if s1_time is not None and s1_time == session_best:
             bg_color_1 = "#a020f0"  # Purple
-        elif s1_time is not None and s1_time == drv1_best:
+        elif s1_time is not None and s1_time == drv1_fastest[f"Sector{sector_num}Time"].total_seconds():
             bg_color_1 = "#22c55e"  # Green
         else:
             bg_color_1 = "#fbbf24"  # Yellow
         # Driver 2 pill color
         if s2_time is not None and s2_time == session_best:
             bg_color_2 = "#a020f0"  # Purple
-        elif s2_time is not None and s2_time == drv2_best:
+        elif s2_time is not None and s2_time == drv2_fastest[f"Sector{sector_num}Time"].total_seconds():
             bg_color_2 = "#22c55e"  # Green
         else:
             bg_color_2 = "#fbbf24"  # Yellow
@@ -730,14 +783,14 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             "time": f"{s1_time:.3f}s" if s1_time is not None else "N/A",
             "color": color_1,
             "bg_color": bg_color_1,
-            "is_personal_best": s1_time == drv1_best if s1_time is not None else False,
+            "is_personal_best": s1_time == drv1_fastest[f"Sector{sector_num}Time"].total_seconds() if s1_time is not None else False,
             "is_overall_best": s1_time == session_best if s1_time is not None else False
         })
         drv2_sectors.append({
             "time": f"{s2_time:.3f}s" if s2_time is not None else "N/A",
             "color": color_2,
             "bg_color": bg_color_2,
-            "is_personal_best": s2_time == drv2_best if s2_time is not None else False,
+            "is_personal_best": s2_time == drv2_fastest[f"Sector{sector_num}Time"].total_seconds() if s2_time is not None else False,
             "is_overall_best": s2_time == session_best if s2_time is not None else False
         })
 
@@ -765,16 +818,102 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv1_lap_time_str = f"{drv1_lap_time:.3f}s"
     drv2_lap_time_str = f"{drv2_lap_time:.3f}s"
 
+    sector_gaps = [
+        drv1_sector_times[i] - session_best_sector_times[i]
+        for i in range(3)
+    ]
+
+    # Get actual qualifying positions from session results
+    results = session.results
+    drv1_result = results[results['Abbreviation'] == drv1_abbr]
+    drv2_result = results[results['Abbreviation'] == drv2_abbr]
+    drv1_position = int(drv1_result['Position'].iloc[0]) if not drv1_result.empty else 0
+    drv2_position = int(drv2_result['Position'].iloc[0]) if not drv2_result.empty else 0
+
+    # After calculating sector times and lap times, add F1 TV panel fields for both drivers
+    # Get driver info for position and team color
+    drv1_info = session.get_driver(drv1_abbr)
+    drv2_info = session.get_driver(drv2_abbr)
+    drv1_team_color = drv1_color
+    drv2_team_color = drv2_color
+    drv1_code = drv1_abbr
+    drv2_code = drv2_abbr
+    # Lap gap to leader (session best lap)
+    session_best_lap_time = min(drv1_lap_time, drv2_lap_time)
+    drv1_lap_gap = f"+{drv1_lap_time - session_best_lap_time:.3f}" if drv1_lap_time > session_best_lap_time else "+0.000"
+    drv2_lap_gap = f"+{drv2_lap_time - session_best_lap_time:.3f}" if drv2_lap_time > session_best_lap_time else "+0.000"
+    # Add sector label and F1 color class for template
+    for i, sector in enumerate(drv1_sectors):
+        sector["label"] = f"S{i+1}"
+        if sector["bg_color"] == "#a020f0":
+            sector["f1_color"] = "purple"
+        elif sector["bg_color"] == "#22c55e":
+            sector["f1_color"] = "green"
+        else:
+            sector["f1_color"] = "yellow"
+        # Add gap to session best for each sector
+        session_best = session_best_sector_times[i]
+        s_time = float(sector["time"].replace("s", "")) if sector["time"] != "N/A" else None
+        if s_time is not None and session_best is not None:
+            session_best_sec = session_best.total_seconds() if hasattr(session_best, 'total_seconds') else float(session_best)
+            gap = s_time - session_best_sec
+            sector["gap"] = f"+{gap:.3f}" if gap > 0.001 else "+0.000"
+        else:
+            sector["gap"] = "N/A"
+    for i, sector in enumerate(drv2_sectors):
+        sector["label"] = f"S{i+1}"
+        if sector["bg_color"] == "#a020f0":
+            sector["f1_color"] = "purple"
+        elif sector["bg_color"] == "#22c55e":
+            sector["f1_color"] = "green"
+        else:
+            sector["f1_color"] = "yellow"
+        session_best = session_best_sector_times[i]
+        s_time = float(sector["time"].replace("s", "")) if sector["time"] != "N/A" else None
+        if s_time is not None and session_best is not None:
+            session_best_sec = session_best.total_seconds() if hasattr(session_best, 'total_seconds') else float(session_best)
+            gap = s_time - session_best_sec
+            sector["gap"] = f"+{gap:.3f}" if gap > 0.001 else "+0.000"
+        else:
+            sector["gap"] = "N/A"
+    # Determine leader (fastest lap)
+    if drv1_lap_time < drv2_lap_time:
+        leader_abbr = drv1_abbr
+    else:
+        leader_abbr = drv2_abbr
+    # Return all fields for template, including leader_abbr
     return (
         plot_buffer,
-        drv1_abbr,
-        drv1_lap_time_str,
-        drv2_abbr,
-        drv2_lap_time_str,
+        drv1_code,
+        f"{drv1_lap_time:.3f}s",
+        drv2_code,
+        f"{drv2_lap_time:.3f}s",
         drv1_sectors,
         drv2_sectors,
         faster_driver,
         delta,
+        drv1_team_color,
+        drv1_position,
+        drv1_lap_gap,
+        drv2_team_color,
+        drv2_position,
+        drv2_lap_gap,
+        leader_abbr,
     )
+
+
+driver_info = {
+    "position": 6,
+    "name": "MAGNUSSEN",
+    "team_color": "#00D2BE",
+    "tyre": "soft",  # or "medium", "hard"
+    "lap_time": "1:13.103",
+    "lap_gap": "+0.874",
+    "sectors": [
+        {"label": "S1", "time": "22.123", "gap": "+0.050", "color": "purple"},
+        {"label": "S2", "time": "28.456", "gap": "+0.200", "color": "yellow"},
+        {"label": "S3", "time": "22.524", "gap": "+0.000", "color": "green"},
+    ]
+}
 
 
