@@ -37,7 +37,13 @@ import math
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-load_dotenv()
+
+env = os.getenv('FLASK_ENV', 'development')
+if env == 'production':
+  load_dotenv('.env.prod')
+else:
+  load_dotenv('.env')
+
 
 app = Flask(__name__)
 
@@ -122,10 +128,24 @@ def ollama_generate():
         request_data["model"] = "f1expert"
         # 🔥 Inject telemetry context into the prompt
         if current_telemetry_context:
+            logging.info(f"Injecting telemetry context with keys: {list(current_telemetry_context.keys())}")
+            
+            # Debug driver names
+            if "driver1" in current_telemetry_context and "driver2" in current_telemetry_context:
+                drv1 = current_telemetry_context["driver1"]
+                drv2 = current_telemetry_context["driver2"]
+                logging.info(f"Driver names: {drv1['name']} ({drv1['full_name']}) vs {drv2['name']} ({drv2['full_name']})")
+            
+            if "plot_annotations" in current_telemetry_context:
+                logging.info(f"Found {len(current_telemetry_context['plot_annotations'])} plot annotations")
+                for i, ann in enumerate(current_telemetry_context['plot_annotations']):
+                    logging.info(f"Annotation {i+1}: {ann['time']} - {ann['description']}")
             context_prompt = create_contextual_prompt(
                 user_prompt, current_telemetry_context
             )
             request_data["prompt"] = context_prompt
+        else:
+            logging.warning("No telemetry context available for AI model")
 
             # Enhanced system message for concise, formatted output
             request_data[
@@ -184,15 +204,18 @@ CURRENT TELEMETRY DATA BEING ANALYZED:
 Race: {race_info['year']} {race_info['race_name']} - {race_info['session_type']}
 Track Length: {race_info['track_length']}
 
-Driver 1: {drv1['full_name']} ({drv1['name']})
+IMPORTANT - DRIVER IDENTIFICATION:
+Driver 1: {drv1['full_name']} (Abbreviation: {drv1['name']})
 - Lap Time: {drv1['lap_time']:.3f} seconds
 - Top Speed: {drv1['max_speed']:.1f} km/h
 - Average Throttle: {drv1['avg_throttle']:.1f}%
 
-Driver 2: {drv2['full_name']} ({drv2['name']})
+Driver 2: {drv2['full_name']} (Abbreviation: {drv2['name']})
 - Lap Time: {drv2['lap_time']:.3f} seconds
 - Top Speed: {drv2['max_speed']:.1f} km/h
 - Average Throttle: {drv2['avg_throttle']:.1f}%
+
+CRITICAL: Always use the correct driver names above. {drv1['name']} = {drv1['full_name']}, {drv2['name']} = {drv2['full_name']}.
 
 Overall Comparison:
 - Faster Driver: {comparison['faster_driver']}
@@ -207,17 +230,41 @@ Sector {sector['sector']}: {sector['faster_driver']} faster by {sector['delta']:
 - {drv1['name']}: {sector['driver1_time']:.3f}s
 - {drv2['name']}: {sector['driver2_time']:.3f}s"""
 
+    # Add plot annotations if available
+    if "plot_annotations" in context and context["plot_annotations"]:
+        context_text += f"""
+
+PLOT ANNOTATIONS VISIBLE ON CURRENT TELEMETRY PLOT:
+The following {len(context['plot_annotations'])} key moments are marked with colored vertical lines and text annotations:"""
+        
+        for i, annotation in enumerate(context["plot_annotations"]):
+            context_text += f"""
+{i+1}. At {annotation['time']}: "{annotation['description']}"
+   - Placed on the plot that best represents this moment
+   - Telemetry data: {annotation.get('telemetry', {})}"""
+    
+    if "visual_elements" in context:
+        visual = context["visual_elements"]
+        context_text += f"""
+
+VISUAL PLOT ELEMENTS:
+- Total annotations shown: {visual.get('total_annotations', 0)}
+- Key moment times: {', '.join(visual.get('annotation_times', []))}
+- Racing insights: {', '.join(visual.get('key_moments', []))}"""
+
     context_text += f"""
 
 VISIBLE PLOTS: The user can see 4 telemetry traces plotted against lap time:
-1. Throttle position (0-100%)
-2. Brake pressure (0-100%)
-3. Engine RPM
-4. Speed (km/h)
+1. Throttle position (0-100%) - with annotations for throttle-related moments
+2. Brake pressure (0-100%) - with annotations for braking-related moments  
+3. Engine RPM - with annotations for gear/engine-related moments
+4. Speed (km/h) - with annotations for speed-related moments
+
+Each significant racing moment is marked with a colored vertical line across all plots and descriptive text above the most relevant plot.
 
 User Question: {user_prompt}
 
-Answer based ONLY on this specific data and what's visible in the current plots."""
+Answer based ONLY on this specific data and the exact annotations visible in the current plots. Reference the specific times and descriptions listed above."""
 
     return context_text
 
@@ -453,11 +500,8 @@ def index():
                 print("[DEBUG] compare_fastest_laps executed successfully")
                 last_plot_buf = plot_path
 
-                # 🔥 NEW: Create race title for header
-                current_telemetry_context = extract_telemetry_context(
-                    session, driver1, driver2
-                )
-                print("[DEBUG] Telemetry context extracted")
+                # 🔥 NEW: Create race title for header - context will be set after plot generation
+                print("[DEBUG] Starting plot generation")
 
                 race_title = f"{session.event.year} {session.event['EventName']}"
                 driver_comparison = f"{drv1_abbr}  {drv2_abbr}"
@@ -619,11 +663,72 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         common_dist, drv2_tel["Distance"], drv2_tel["Time"].dt.total_seconds()
     )
 
-    # Calculate delta and find key moments
+    # Calculate delta and find key moments with dynamic threshold
     delta = drv2_time - drv1_time
     delta_diff = np.diff(delta)
-    swing_threshold = np.percentile(np.abs(delta_diff), 99)
-    key_idxs = np.where(np.abs(delta_diff) > swing_threshold)[0]
+    
+    # Use a more meaningful threshold based on lap time difference
+    total_lap_delta = abs(delta[-1] - delta[0])  # Total lap time difference
+    
+    # Calculate multiple potential thresholds
+    percentile_threshold = np.percentile(np.abs(delta_diff), 95)  # 95th percentile (less strict than 99th)
+    delta_based_threshold = total_lap_delta * 0.05  # 5% of total delta (was 10%)
+    min_threshold = 0.005  # Minimum 5ms change
+    
+    # Use the most permissive threshold to ensure we catch significant moments
+    min_significant_change = max(min_threshold, min(percentile_threshold, delta_based_threshold))
+    
+    # Find moments where time difference changes significantly
+    key_idxs = np.where(np.abs(delta_diff) > min_significant_change)[0]
+    
+    # Filter out moments that are too close together (within 3 seconds) - keep most significant
+    if len(key_idxs) > 1:
+        # Create list of (index, time, significance) tuples
+        moments_with_significance = []
+        for idx in key_idxs:
+            time_point = drv1_time[idx]
+            significance = abs(delta_diff[idx])
+            moments_with_significance.append((idx, time_point, significance))
+        
+        # Sort by time to process chronologically
+        moments_with_significance.sort(key=lambda x: x[1])
+        
+        filtered_moments = []
+        for idx, time_point, significance in moments_with_significance:
+            # Check if this moment is too close to any already selected moment
+            too_close = False
+            competing_moment = None
+            
+            for selected_idx, selected_time, selected_significance in filtered_moments:
+                if abs(time_point - selected_time) < 3.0:  # Within 3 seconds
+                    too_close = True
+                    competing_moment = (selected_idx, selected_time, selected_significance)
+                    break
+            
+            if too_close and competing_moment:
+                # Replace if this moment is more significant
+                if significance > competing_moment[2]:
+                    filtered_moments.remove(competing_moment)
+                    filtered_moments.append((idx, time_point, significance))
+                    logging.info(f"Replaced moment at {competing_moment[1]:.1f}s (sig={competing_moment[2]:.4f}) with {time_point:.1f}s (sig={significance:.4f})")
+                # Otherwise skip this less significant moment
+            elif not too_close:
+                filtered_moments.append((idx, time_point, significance))
+        
+        # Extract just the indices, sorted by time
+        filtered_moments.sort(key=lambda x: x[1])
+        key_idxs = np.array([moment[0] for moment in filtered_moments])
+    
+    # Debug logging
+    logging.info(f"Threshold analysis: percentile_95={percentile_threshold:.4f}s, delta_based={delta_based_threshold:.4f}s, min={min_threshold:.4f}s")
+    logging.info(f"Selected threshold: {min_significant_change:.4f}s")
+    logging.info(f"Found {len(key_idxs)} significant moments with threshold {min_significant_change:.4f}s")
+    logging.info(f"Total lap delta: {total_lap_delta:.3f}s")
+    if len(key_idxs) > 0:
+        logging.info(f"Key moment times: {[f'{drv1_time[idx]:.1f}s' for idx in key_idxs]}")
+        logging.info(f"Delta changes: {[f'{delta_diff[idx]:.3f}s' for idx in key_idxs]}")
+    else:
+        logging.warning(f"No key moments found! Max delta_diff: {np.max(np.abs(delta_diff)):.4f}s")
 
     # Telemetry channels to plot
     telemetry_metrics = ["Throttle", "Brakes", "RPM", "Speed"]
@@ -754,6 +859,125 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         ax.spines["left"].set_color("white")
         ax.spines["bottom"].set_color("white")
 
+    # --- Add Key Moment Annotations ---
+    logging.info(f"Starting annotation process with {len(key_idxs)} significant moments")
+    
+    # Add annotations for key moments
+    annotation_colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b']
+    
+    for i, idx in enumerate(key_idxs):
+        try:
+            logging.info(f"Processing annotation {i+1}/{len(key_idxs)} at index {idx}")
+            
+            # Get telemetry values at this moment
+            time_point = drv1_time[idx]
+            logging.info(f"Time point for annotation {i}: {time_point}")
+            
+            # Interpolate telemetry values for both drivers at this moment
+            drv1_throttle = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Throttle"])
+            drv2_throttle = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Throttle"])
+            drv1_brake = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Brake"])
+            drv2_brake = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Brake"])
+            drv1_speed = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Speed"])
+            drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
+            drv1_rpm = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["RPM"])
+            drv2_rpm = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["RPM"])
+            
+            logging.info(f"Telemetry at moment {i}: T1={drv1_throttle:.1f}, T2={drv2_throttle:.1f}, V1={drv1_speed:.1f}, V2={drv2_speed:.1f}")
+            
+            # Classify the moment
+            moment_description = classify_moment(
+                t1=drv1_throttle,
+                t2=drv2_throttle,
+                b1=drv1_brake,
+                b2=drv2_brake,
+                v1=drv1_speed,
+                v2=drv2_speed,
+                r1=drv1_rpm,
+                r2=drv2_rpm,
+                session_type=session.name
+            )
+            
+            logging.info(f"Moment description: {moment_description}")
+            
+            # Skip minor/insignificant moments
+            if any(word in moment_description.lower() for word in ['minor', 'slight difference', 'small']):
+                logging.info(f"Skipping minor moment: {moment_description}")
+                continue
+            
+            # Add vertical line across all plots
+            annotation_color = annotation_colors[i % len(annotation_colors)]
+            for ax_idx, ax in enumerate(axes):
+                ax.axvline(x=time_point, color=annotation_color, alpha=0.3, linewidth=1, linestyle='--', zorder=10)
+            
+            # Determine which plot the annotation should go on based on content
+            plot_names = ["Throttle", "Brake", "RPM", "Speed"]
+            target_plot_idx = 0  # Default to Throttle plot
+            
+            # Analyze the moment description to determine best plot placement
+            description_lower = moment_description.lower()
+            
+            # Priority order for keyword matching (most specific first)
+            if any(word in description_lower for word in ['brake', 'braking', 'stopping', 'trail']):
+                target_plot_idx = 1  # Brake plot
+            elif any(word in description_lower for word in ['rpm', 'gear', 'shift', 'engine', 'rev']):
+                target_plot_idx = 2  # RPM plot  
+            elif any(word in description_lower for word in ['speed', 'velocity', 'fast', 'slow', 'mph', 'km/h', 'corner exit', 'straight']):
+                target_plot_idx = 3  # Speed plot
+            elif any(word in description_lower for word in ['throttle', 'acceleration', 'power', 'pedal', 'gas']):
+                target_plot_idx = 0  # Throttle plot
+            else:
+                # If no specific keywords, analyze the telemetry data to determine most relevant plot
+                throttle_diff = abs(drv1_throttle - drv2_throttle)
+                brake_diff = abs(drv1_brake - drv2_brake)
+                speed_diff = abs(drv1_speed - drv2_speed)
+                rpm_diff = abs(drv1_rpm - drv2_rpm) if drv1_rpm > 0 and drv2_rpm > 0 else 0
+                
+                # Find which telemetry channel has the biggest difference
+                diffs = [throttle_diff, brake_diff, rpm_diff/100, speed_diff/10]  # Normalize for comparison
+                target_plot_idx = diffs.index(max(diffs))
+                
+                logging.info(f"No keywords matched, using telemetry analysis: T={throttle_diff:.1f}, B={brake_diff:.1f}, R={rpm_diff:.0f}, S={speed_diff:.1f} -> {plot_names[target_plot_idx]}")
+            
+            # Add annotation text to the determined plot
+            ax = axes[target_plot_idx]
+            y_min, y_max = ax.get_ylim()
+            y_range = y_max - y_min
+            y_position = y_max + (y_range * 0.02)  # Slightly above the top of the plot
+            
+            ax.annotate(
+                moment_description,
+                xy=(time_point, y_max),
+                xytext=(time_point, y_position),
+                ha='center',
+                va='bottom',
+                color=annotation_color,
+                fontsize=9,
+                fontweight='bold',
+                bbox=dict(
+                    boxstyle="round,pad=0.3",
+                    facecolor='black',
+                    alpha=0.9,
+                    edgecolor=annotation_color,
+                    linewidth=1.5
+                ),
+                path_effects=line_effects,
+                zorder=11,
+                clip_on=False  # Allow text to extend outside plot area
+            )
+            
+            logging.info(f"Placed annotation '{moment_description}' on {plot_names[target_plot_idx]} plot")
+            
+            logging.info(f"Added annotation to all plots: '{moment_description}' at {time_point:.1f}s with color {annotation_color}")
+            
+        except Exception as e:
+            logging.error(f"Failed to annotate moment {i}: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+            continue
+    
+    logging.info(f"Finished processing {len(key_idxs)} annotations")
+
     # Prepare sector data with correct coloring
     drv1_sectors = []
     drv2_sectors = []
@@ -881,6 +1105,52 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         leader_abbr = drv1_abbr
     else:
         leader_abbr = drv2_abbr
+
+    # Create enhanced telemetry context with annotation information
+    global current_telemetry_context
+    current_telemetry_context = extract_telemetry_context(
+        session, drv1_abbr, drv2_abbr
+    )
+    
+    # Add annotation information to context
+    annotation_info = []
+    for i, idx in enumerate(key_idxs):
+        try:
+            time_point = drv1_time[idx]
+            drv1_throttle = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Throttle"])
+            drv2_throttle = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Throttle"])
+            drv1_brake = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Brake"])
+            drv2_brake = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Brake"])
+            drv1_speed = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Speed"])
+            drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
+            
+            moment_description = classify_moment(
+                t1=drv1_throttle, t2=drv2_throttle, b1=drv1_brake, b2=drv2_brake,
+                v1=drv1_speed, v2=drv2_speed, r1=0, r2=0,  # Skip RPM for context
+                session_type=session.name
+            )
+            
+            annotation_info.append({
+                "time": f"{time_point:.1f}s",
+                "description": moment_description,
+                "telemetry": {
+                    f"{drv1_abbr}": {"throttle": f"{drv1_throttle:.0f}%", "brake": f"{drv1_brake:.0f}%", "speed": f"{drv1_speed:.0f} km/h"},
+                    f"{drv2_abbr}": {"throttle": f"{drv2_throttle:.0f}%", "brake": f"{drv2_brake:.0f}%", "speed": f"{drv2_speed:.0f} km/h"}
+                }
+            })
+        except:
+            continue
+
+    # Add visual plot information to context
+    current_telemetry_context["plot_annotations"] = annotation_info
+    current_telemetry_context["visual_elements"] = {
+        "total_annotations": len(annotation_info),
+        "annotation_times": [ann["time"] for ann in annotation_info],
+        "key_moments": [ann["description"] for ann in annotation_info]
+    }
+    
+    logging.info(f"Enhanced telemetry context with {len(annotation_info)} annotations")
+
     # Return all fields for template, including leader_abbr
     return (
         plot_buffer,
@@ -915,5 +1185,3 @@ driver_info = {
         {"label": "S3", "time": "22.524", "gap": "+0.000", "color": "green"},
     ]
 }
-
-
