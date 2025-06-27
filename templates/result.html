@@ -116,95 +116,162 @@
         </div>
       </div>
 
-      <!-- F1 AI Chat Widget - FLOATING OVERLAY -->
+      <!-- F1 AI ANALYSIS - MAIN FEATURE -->
       <div
-        class="f1-ai-btn-container"
+        class="f1-ai-main-container"
         style="
           position: fixed;
-          bottom: 24px;
-          right: 24px;
+          bottom: 25px;
+          left: 50%;
+          transform: translateX(-50%);
           z-index: 1000;
-          width: 240px;
           display: flex;
           flex-direction: column;
           align-items: center;
           font-family: 'Rajdhani', sans-serif;
         "
       >
+        <!-- Main AI Button -->
         <button
           id="chatToggleBtn"
           style="
-            background: linear-gradient(45deg, #ff0000, #ff6b6b);
+            background: linear-gradient(135deg, rgba(255, 107, 107, 0.9) 0%, rgba(255, 0, 0, 0.8) 100%);
             color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 16px 20px;
-            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 16px 32px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-weight: bold;
-            font-size: 14px;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(10px);
           "
         >
-          <span>🏎️</span>
-          <span>F1 AI</span>
+          <span style="font-size: 20px;">🤖</span>
+          <span>Ask F1 AI Expert</span>
           <div
-            class="pulse"
             style="
-              width: 12px;
-              height: 12px;
-              background: #fbbf24;
+              width: 8px;
+              height: 8px;
+              background: #4ecdc4;
               border-radius: 50%;
+              animation: pulseGlow 2s ease-in-out infinite;
             "
           ></div>
         </button>
+        
+        <style>
+          #chatToggleBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.4);
+          }
+          
+          /* Chat container responsive */
+          @media (max-width: 768px) {
+            #chatContainer {
+              width: 95vw !important;
+              height: 85vh !important;
+              bottom: 10px !important;
+              right: 2.5vw !important;
+              transform: none !important;
+              max-width: none !important;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            #chatContainer {
+              width: 98vw !important;
+              height: 90vh !important;
+              bottom: 5px !important;
+              right: 1vw !important;
+              border-radius: 15px !important;
+            }
+          }
+        </style>
+        
+        <!-- Instruction text -->
+        <div
+          style="
+            margin-top: 6px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            font-weight: 500;
+          "
+        >
+          Get AI insights on this telemetry comparison
+        </div>
       </div>
 
       <div
         id="chatContainer"
         style="
           display: none;
-          width: 420px;
-          height: 650px;
-          min-width: 300px;
-          min-height: 400px;
-          max-width: 800px;
-          max-height: 900px;
+          width: 450px;
+          height: 700px;
+          min-width: 350px;
+          min-height: 450px;
+          max-width: 900px;
+          max-height: 90vh;
           background: linear-gradient(
             135deg,
             rgba(26, 26, 26, 0.95) 0%,
             rgba(45, 27, 27, 0.95) 100%
           );
-          backdrop-filter: blur(20px);
-          border: 2px solid rgba(255, 107, 107, 0.3);
-          border-radius: 20px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(25px);
+          border: 3px solid rgba(255, 107, 107, 0.4);
+          border-radius: 25px;
+          box-shadow: 
+            0 25px 50px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            0 0 40px rgba(255, 107, 107, 0.2);
           overflow: hidden;
           flex-direction: column;
           resize: both;
           position: fixed;
-          bottom: 80px;
-          right: 24px;
+          bottom: 120px;
+          right: 50%;
+          transform: translateX(50%);
+          cursor: move;
+          animation: chatAppear 0.4s ease-out;
         "
       >
         <!-- Chat Header -->
         <div
           id="chatHeader"
           style="
-            padding: 16px;
+            padding: 20px;
             background: linear-gradient(
               135deg,
-              rgba(255, 0, 0, 0.15) 0%,
-              rgba(0, 0, 0, 0.4) 100%
+              rgba(255, 0, 0, 0.2) 0%,
+              rgba(45, 27, 27, 0.6) 100%
             );
-            border-bottom: 1px solid rgba(255, 107, 107, 0.2);
-            cursor: move;
+            border-bottom: 2px solid rgba(255, 107, 107, 0.3);
+            cursor: grab;
             user-select: none;
+            position: relative;
           "
         >
+          <!-- Drag indicator -->
+          <div style="
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 4px;
+            background: rgba(255, 107, 107, 0.6);
+            border-radius: 2px;
+            animation: dragHint 2s ease-in-out infinite;
+          "></div>
+          
           <div
             style="
               display: flex;
@@ -213,18 +280,20 @@
               margin-bottom: 12px;
             "
           >
-            <div style="display: flex; align-items: center; gap: 10px">
+            <div style="display: flex; align-items: center; gap: 15px">
               <div
                 style="
-                  width: 32px;
-                  height: 32px;
+                  width: 36px;
+                  height: 36px;
                   border-radius: 50%;
                   background: linear-gradient(45deg, #ff0000, #ff6b6b);
                   display: flex;
                   align-items: center;
                   justify-content: center;
                   color: white;
-                  font-size: 16px;
+                  font-size: 18px;
+                  box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
+                  animation: aiIcon 3s ease-in-out infinite;
                 "
               >
                 🤖
@@ -234,13 +303,25 @@
                   style="
                     color: white;
                     font-family: 'Orbitron', monospace;
-                    font-weight: bold;
-                    font-size: 16px;
+                    font-weight: 900;
+                    font-size: 18px;
                     margin: 0;
+                    letter-spacing: 1px;
                   "
                 >
                   F1 EXPERT AI
                 </h3>
+                <p
+                  style="
+                    color: rgba(255, 255, 255, 0.8);
+                    font-family: 'Rajdhani', sans-serif;
+                    font-size: 12px;
+                    margin: 2px 0 0 0;
+                    font-weight: 600;
+                  "
+                >
+                  🏎️ Drag me around • Resize corners • Ask anything!
+                </p>
                 <p
                   style="
                     color: rgba(255, 255, 255, 0.7);
