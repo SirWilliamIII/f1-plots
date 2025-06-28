@@ -75,14 +75,14 @@ services:
       - f1-network
     restart: unless-stopped
     # Oracle Cloud optimized limits (24GB total RAM)
-    mem_limit: 8g
+    mem_limit: 6g
     cpus: 2
     deploy:
       resources:
         limits:
-          memory: 8g
+          memory: 6g
         reservations:
-          memory: 3g
+          memory: 2g
 
   ollama:
     build:
@@ -106,15 +106,15 @@ services:
       timeout: 10s
       retries: 5
       start_period: 180s
-    # Oracle Cloud optimized limits (24GB total RAM)
-    mem_limit: 16g
+    # Oracle Cloud optimized limits (24GB total RAM) - Max memory for Ollama
+    mem_limit: 20g
     cpus: 4
     deploy:
       resources:
         limits:
-          memory: 16g
+          memory: 20g
         reservations:
-          memory: 6g
+          memory: 12g
 
   nginx:
     image: nginx:alpine
@@ -129,7 +129,7 @@ services:
     networks:
       - f1-network
     restart: unless-stopped
-    mem_limit: 512m
+    mem_limit: 1g
 
 volumes:
   ollama_data:
