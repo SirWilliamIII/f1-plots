@@ -10,6 +10,7 @@ services:
       - PYTHONUNBUFFERED=1
       - MATPLOTLIB_BACKEND=Agg
       - PORT=8080
+      - FLASK_ENV=production
     volumes:
       - ./fastf1_cache:/app/fastf1_cache
       - ./static/plots:/app/static/plots
@@ -20,6 +21,8 @@ services:
     networks:
       - f1-network
     restart: unless-stopped
+    mem_limit: 8g
+    cpus: 2
 
   ollama:
     image: ollama/ollama:latest
@@ -32,12 +35,32 @@ services:
     restart: unless-stopped
     environment:
       - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=2
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 180s
+    mem_limit: 26g
+    cpus: 3
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - flask-app
+    networks:
+      - f1-network
+    restart: unless-stopped
+    mem_limit: 512m
 
 volumes:
   ollama_data:
