@@ -1389,13 +1389,79 @@ body {
   }
 
   .driver-info-sidebar {
-    flex: 0 0 35%;
-    height: 35%;
-    width: 100%;
-    padding: 0.5em;
-    overflow-y: auto;
-    box-sizing: border-box;
-    margin: 0;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 1.5em !important;
+    padding: 1em !important;
+    width: 95% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .driver-info-sidebar .f1tv-driver-panel {
+    flex: 0 0 calc(50% - 0.75em) !important;
+    max-width: calc(50% - 0.75em) !important;
+    min-width: 280px !important;
+    margin: 0 !important;
+    padding: 1em !important;
+    font-size: 0.95em !important;
+    height: fit-content !important;
+  }
+
+  .driver-info-sidebar .f1tv-header {
+    gap: 0.6em !important;
+    margin-bottom: 0.8em !important;
+  }
+
+  .driver-info-sidebar .f1tv-code {
+    font-size: 1.2em !important;
+  }
+
+  .driver-info-sidebar .f1tv-lap-time {
+    font-size: 1.1em !important;
+  }
+
+  .driver-info-sidebar .f1tv-sectors {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5em !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .driver-info-sidebar .f1tv-sector-pill {
+    font-size: 0.8em !important;
+    padding: 0.25em 0.6em !important;
+    min-width: 70px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .driver-info-sidebar .f1tv-gap {
+    font-size: 0.9em !important;
+    margin-bottom: 0.5em !important;
+  }
+
+  .plot-section {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .driver-info-sidebar .lap-time-delta {
+    flex-basis: 100% !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin-top: 1em !important;
+    font-size: 1.4em !important;
+    order: 3 !important;
   }
 
   /* AI button for stacked layout */
@@ -1484,6 +1550,16 @@ body {
     max-height: 55vh;
     padding: 0.5em;
     overflow-y: auto;
+    width: 95% !important;
+    flex-direction: column !important;
+  }
+
+  .driver-info-sidebar .f1tv-driver-panel {
+    flex: none !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    margin-bottom: 0.8em !important;
   }
 
   .header-content {

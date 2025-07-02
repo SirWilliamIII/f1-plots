@@ -1,3 +1,6 @@
+import requests_cache
+
+requests_cache.install_cache('f1_cache', backend='sqlite', expire_after=3600)
 """
 Session Manager Module for F1 Telemetry Application
 
@@ -18,7 +21,6 @@ class SessionManager:
     """
     Manages FastF1 session caching and preloading for optimal performance.
 
-    Like a pit crew chief coordinating tire changes - ensures sessions are
     ready when needed and handles the complex timing of data loading.
     """
 

@@ -31,12 +31,7 @@ fi
 
 # Check if we have uncommitted changes
 if ! git diff-index --quiet HEAD --; then
-    echo -e "${YELLOW}⚠️  Warning: You have uncommitted changes${NC}"
-    read -p "Continue anyway? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    echo -e "${YELLOW}⚠️  Warning: You have uncommitted changes - continuing anyway${NC}"
 fi
 
 # Get current branch and commit
@@ -50,12 +45,7 @@ echo -e "  Target: ${GREEN}$ORACLE_USER@$ORACLE_HOST${NC}"
 echo ""
 
 # Confirm deployment
-read -p "Deploy to Oracle Cloud? (y/n): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Deployment cancelled${NC}"
-    exit 0
-fi
+echo -e "${GREEN}✅ Proceeding with deployment to Oracle Cloud${NC}"
 
 echo -e "${BLUE}🔄 Starting deployment...${NC}"
 

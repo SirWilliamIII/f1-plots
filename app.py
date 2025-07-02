@@ -16,6 +16,7 @@ from flask import (
     Response,
     stream_with_context,
 )
+from werkzeug.exceptions import HTTPException
 import fastf1
 from fastf1 import plotting
 import logging
@@ -125,7 +126,16 @@ def ollama_generate():
     try:
         request_data = request.json.copy()
         user_prompt = request_data.get("prompt", "")
-        request_data["model"] = "f1expert"
+        request_data["model"] = "f1expert-fast"
+        
+        # Performance optimizations
+        request_data["options"] = {
+            "num_predict": 200,  # Limit response length for faster inference
+            "temperature": 0.3,  # Lower temperature for faster, more focused responses
+            "num_ctx": 2048,     # Smaller context window for faster processing
+            "repeat_penalty": 1.1
+        }
+        
         # 🔥 Inject telemetry context into the prompt
         if current_telemetry_context:
             logging.info(f"Injecting telemetry context with keys: {list(current_telemetry_context.keys())}")
@@ -805,47 +815,31 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     except Exception as e:
         logging.warning(f"Could not add sector split markers: {e}")
 
-    # Plot throttle
-    axes[0].plot(
-        drv1_tel["Time"].dt.total_seconds(),
-        drv1_tel["Throttle"],
-        color=drv1_color,
-        label=drv1_abbr,
-        linewidth=2.2,
-        path_effects=line_effects
-    )
-    axes[0].plot(
-        drv2_tel["Time"].dt.total_seconds(),
-        drv2_tel["Throttle"],
-        color=drv2_color,
-        label=drv2_abbr,
-        linewidth=2.2,
-        path_effects=line_effects
-    )
-    axes[0].set_ylabel("Throttle", **label_font)
+    def plot_telemetry(ax, drv1_tel, drv2_tel, metric, drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects):
+        ax.plot(
+            drv1_tel["Time"].dt.total_seconds(),
+            drv1_tel[metric],
+            color=drv1_color,
+            label=drv1_abbr,
+            linewidth=2.2,
+            path_effects=line_effects
+        )
+        ax.plot(
+            drv2_tel["Time"].dt.total_seconds(),
+            drv2_tel[metric],
+            color=drv2_color,
+            label=drv2_abbr,
+            linewidth=2.2,
+            path_effects=line_effects
+        )
+        ax.set_ylabel(metric, **label_font)
+
+    plot_telemetry(axes[0], drv1_tel, drv2_tel, "Throttle", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
     axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white", framealpha=0.85, loc='upper right')
-
-    # Plot brakes
-    axes[1].plot(
-        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Brake"], color=drv1_color, linewidth=2.2, path_effects=line_effects
-    )
-    axes[1].plot(
-        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Brake"], color=drv2_color, linewidth=2.2, path_effects=line_effects
-    )
+    plot_telemetry(axes[1], drv1_tel, drv2_tel, "Brake", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
     axes[1].set_ylabel("Brakes", **label_font)
-
-    # Plot RPM
-    axes[2].plot(drv1_tel["Time"].dt.total_seconds(), drv1_tel["RPM"], color=drv1_color, linewidth=2.2, path_effects=line_effects)
-    axes[2].plot(drv2_tel["Time"].dt.total_seconds(), drv2_tel["RPM"], color=drv2_color, linewidth=2.2, path_effects=line_effects)
-    axes[2].set_ylabel("RPM", **label_font)
-
-    # Plot speed
-    axes[3].plot(
-        drv1_tel["Time"].dt.total_seconds(), drv1_tel["Speed"], color=drv1_color, linewidth=2.2, path_effects=line_effects
-    )
-    axes[3].plot(
-        drv2_tel["Time"].dt.total_seconds(), drv2_tel["Speed"], color=drv2_color, linewidth=2.2, path_effects=line_effects
-    )
+    plot_telemetry(axes[2], drv1_tel, drv2_tel, "RPM", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
+    plot_telemetry(axes[3], drv1_tel, drv2_tel, "Speed", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
     axes[3].set_ylabel("Speed (km/h)", **label_font)
     axes[3].set_xlabel("Lap Time", **label_font)
 
@@ -1185,3 +1179,12 @@ driver_info = {
         {"label": "S3", "time": "22.524", "gap": "+0.000", "color": "green"},
     ]
 }
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # pass through HTTP errors
+    if isinstance(e, HTTPException):
+        return e
+
+    # now you're handling non-HTTP exceptions only
+    return render_template("error.html", error_message=str(e)), 500

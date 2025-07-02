@@ -30,6 +30,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2025.2
 RapidFuzz==3.13.0
+requests-cache==1.2.1
 requests==2.31.0
 requests-cache==1.2.1
 s3transfer==0.13.0
