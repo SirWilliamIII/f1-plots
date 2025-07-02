@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   flask-app:
-    build: .
+    image: f1-flask-app:latest
     ports:
       - "8080:8080"
     environment:
@@ -20,6 +20,8 @@ services:
     networks:
       - f1-network
     restart: unless-stopped
+    mem_limit: 8g
+    cpus: 2
 
   ollama:
     image: ollama/ollama:latest
@@ -32,12 +34,17 @@ services:
     restart: unless-stopped
     environment:
       - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=2
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 180s
+    mem_limit: 40g
+    cpus: 4
 
 volumes:
   ollama_data:

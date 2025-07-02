@@ -6,8 +6,8 @@
 set -e
 
 # Configuration
-ORACLE_HOST="141.147.90.245"
-ORACLE_USER="opc"
+ORACLE_HOST="141.147.90.24"
+ORACLE_USER="ubuntu"
 SSH_KEY="~/.ssh/ssh-key-2025-07-01.key"
 DEPLOY_DIR="/opt/f1-app"
 LOCAL_PROJECT_DIR="/Users/will/Programming/Python/f1-race-plots"
@@ -71,30 +71,24 @@ rsync -avz --delete \
     --exclude 'node_modules' \
     -e "ssh -i $SSH_KEY" \
     ./ $ORACLE_USER@$ORACLE_HOST:$DEPLOY_DIR/
+
+# Copy the optimized docker-compose file
+rsync -avz -e "ssh -i $SSH_KEY" ./docker-compose.production.yml $ORACLE_USER@$ORACLE_HOST:$DEPLOY_DIR/
+rsync -avz -e "ssh -i $SSH_KEY" ./fix-ollama.sh $ORACLE_USER@$ORACLE_HOST:$DEPLOY_DIR/
 echo -e "${GREEN}✅ Files synced${NC}"
 
 # Step 3: Build new Docker image
 echo -e "${YELLOW}3/6 Building Docker image...${NC}"
-ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST "cd $DEPLOY_DIR && docker build -t f1-flask-app:latest ."
+ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST "cd $DEPLOY_DIR && docker builder prune -f && docker build --no-cache -t f1-flask-app:latest ."
 echo -e "${GREEN}✅ Docker image built${NC}"
 
-# Step 4: Stop services
-echo -e "${YELLOW}4/6 Stopping services...${NC}"
-ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST "cd $DEPLOY_DIR && docker-compose -f docker-compose.optimized.yml down"
-echo -e "${GREEN}✅ Services stopped${NC}"
+# Step 4: Fix Ollama deployment
+echo -e "${YELLOW}4/6 Fixing Ollama configuration...${NC}"
+ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST "cd $DEPLOY_DIR && chmod +x fix-ollama.sh && ./fix-ollama.sh"
+echo -e "${GREEN}✅ Ollama fixed and running${NC}"
 
-# Step 5: Start services
-echo -e "${YELLOW}5/6 Starting services...${NC}"
-ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST "cd $DEPLOY_DIR && docker-compose -f docker-compose.optimized.yml up -d"
-echo -e "${GREEN}✅ Services started${NC}"
-
-# Step 6: Update F1 models if needed
-echo -e "${YELLOW}6/7 Checking F1 models...${NC}"
-ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST "cd $DEPLOY_DIR && if docker exec \$(docker ps --format 'table {{.Names}}' | grep ollama) ollama list | grep -q 'f1expert'; then echo 'Models already exist'; else echo 'Creating F1 expert model...' && docker cp f1expert.modelfile \$(docker ps --format 'table {{.Names}}' | grep ollama):/tmp/ && docker exec \$(docker ps --format 'table {{.Names}}' | grep ollama) ollama create f1expert -f /tmp/f1expert.modelfile; fi"
-echo -e "${GREEN}✅ F1 models ready${NC}"
-
-# Step 7: Health check
-echo -e "${YELLOW}7/7 Running health check...${NC}"
+# Step 5: Health check
+echo -e "${YELLOW}5/5 Running health check...${NC}"
 sleep 10  # Give services time to start
 
 # Check Flask app
@@ -134,8 +128,8 @@ echo -e "  • ${GREEN}3 CPU cores${NC} dedicated to Ollama"
 echo -e "  • ${GREEN}Multi-threading${NC} enabled for faster processing"
 echo ""
 echo -e "${BLUE}📊 Management commands:${NC}"
-echo -e "  • Health check: ${YELLOW}ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST '~/f1-health.sh'${NC}"
-echo -e "  • View logs: ${YELLOW}ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST 'cd $DEPLOY_DIR && docker-compose -f docker-compose.optimized.yml logs -f'${NC}"
-echo -e "  • Restart: ${YELLOW}ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST 'cd $DEPLOY_DIR && docker-compose -f docker-compose.optimized.yml restart'${NC}"
+echo -e "  • Fix Ollama: ${YELLOW}ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST 'cd $DEPLOY_DIR && ./fix-ollama.sh'${NC}"
+echo -e "  • View logs: ${YELLOW}ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST 'cd $DEPLOY_DIR && docker-compose -f docker-compose.production.yml logs -f'${NC}"
+echo -e "  • Restart: ${YELLOW}ssh -i $SSH_KEY $ORACLE_USER@$ORACLE_HOST 'cd $DEPLOY_DIR && docker-compose -f docker-compose.production.yml restart'${NC}"
 echo ""
 echo -e "${GREEN}Happy racing! 🏎️💨${NC}"

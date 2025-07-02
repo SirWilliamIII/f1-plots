@@ -107,7 +107,7 @@ services:
       retries: 5
       start_period: 180s
     # Oracle Cloud optimized limits (24GB total RAM) - Max memory for Ollama
-    mem_limit: 20g
+    mem_limit: 40g
     cpus: 4
     deploy:
       resources:
