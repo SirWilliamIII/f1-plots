@@ -208,24 +208,3 @@ env.list
 fastf1_cache/
 
 .vscode/
-
-# Environment files
-.env
-.env.prod
-
-# Docker files
-Dockerfile.ollama
-Dockerfile.ollama.fixed
-docker-compose.*.yml
-
-# Deployment files
-deploy-hetzner.sh
-HETZNER-DEPLOYMENT.md
-
-# Nginx config
-nginx.conf
-nginx.ssl.conf
-
-# Learning database script
-learning_db.py
-

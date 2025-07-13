@@ -200,6 +200,37 @@ def extract_telemetry_context(session, driver1, driver2):
     except:
         track_length = 0.0
 
+    # Calculate gear usage statistics
+    def calculate_gear_stats(telemetry):
+        """Calculate gear usage statistics from telemetry data"""
+        gear_data = telemetry['nGear']
+        gear_stats = {
+            'max_gear': int(gear_data.max()),
+            'min_gear': int(gear_data.min()),
+            'avg_gear': float(gear_data.mean()),
+            'gear_changes': 0,
+            'gear_usage': {}
+        }
+
+        # Count gear changes
+        for i in range(1, len(gear_data)):
+            if gear_data.iloc[i] != gear_data.iloc[i-1]:
+                gear_stats['gear_changes'] += 1
+
+        # Calculate time spent in each gear
+        total_time = len(gear_data)
+        for gear in range(1, 9):
+            gear_count = (gear_data == gear).sum()
+            gear_stats['gear_usage'][f'gear_{gear}'] = {
+                'percentage': float(gear_count / total_time * 100),
+                'count': int(gear_count)
+            }
+
+        return gear_stats
+
+    drv1_gear_stats = calculate_gear_stats(drv1_tel)
+    drv2_gear_stats = calculate_gear_stats(drv2_tel)
+
     context = {
         "race_info": {
             "year": session.event.year,
@@ -212,14 +243,20 @@ def extract_telemetry_context(session, driver1, driver2):
             "full_name": drv1_info['BroadcastName'],
             "lap_time": float(drv1_fastest['LapTime'].total_seconds()),
             "max_speed": float(drv1_tel['Speed'].max()),
-            "avg_throttle": float(drv1_tel['Throttle'].mean())
+            "avg_throttle": float(drv1_tel['Throttle'].mean()),
+            "max_rpm": float(drv1_tel['RPM'].max()),
+            "avg_rpm": float(drv1_tel['RPM'].mean()),
+            "gear_stats": drv1_gear_stats
         },
         "driver2": {
             "name": driver2,
             "full_name": drv2_info['BroadcastName'],
             "lap_time": float(drv2_fastest['LapTime'].total_seconds()),
             "max_speed": float(drv2_tel['Speed'].max()),
-            "avg_throttle": float(drv2_tel['Throttle'].mean())
+            "avg_throttle": float(drv2_tel['Throttle'].mean()),
+            "max_rpm": float(drv2_tel['RPM'].max()),
+            "avg_rpm": float(drv2_tel['RPM'].mean()),
+            "gear_stats": drv2_gear_stats
         }
     }
 
@@ -228,7 +265,9 @@ def extract_telemetry_context(session, driver1, driver2):
     context["comparison"] = {
         "faster_driver": driver1 if context["driver1"]["lap_time"] == faster_time else driver2,
         "lap_time_delta": abs(context["driver1"]["lap_time"] - context["driver2"]["lap_time"]),
-        "speed_difference": abs(context["driver1"]["max_speed"] - context["driver2"]["max_speed"])
+        "speed_difference": abs(context["driver1"]["max_speed"] - context["driver2"]["max_speed"]),
+        "rpm_difference": abs(context["driver1"]["max_rpm"] - context["driver2"]["max_rpm"]),
+        "gear_changes_difference": abs(drv1_gear_stats['gear_changes'] - drv2_gear_stats['gear_changes'])
     }
 
     # Add sector analysis

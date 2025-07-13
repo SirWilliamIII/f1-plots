@@ -129,7 +129,7 @@ def ollama_generate():
         request_data = request.json.copy()
         user_prompt = request_data.get("prompt", "")
         request_data["model"] = "f1expert"
-        
+
         # Performance optimizations
         request_data["options"] = {
             "num_predict": 200,  # Limit response length for faster inference
@@ -137,17 +137,17 @@ def ollama_generate():
             "num_ctx": 2048,     # Smaller context window for faster processing
             "repeat_penalty": 1.1
         }
-        
+
         # 🔥 Inject telemetry context into the prompt
         if current_telemetry_context:
             logging.info(f"Injecting telemetry context with keys: {list(current_telemetry_context.keys())}")
-            
+
             # Debug driver names
             if "driver1" in current_telemetry_context and "driver2" in current_telemetry_context:
                 drv1 = current_telemetry_context["driver1"]
                 drv2 = current_telemetry_context["driver2"]
                 logging.info(f"Driver names: {drv1['name']} ({drv1['full_name']}) vs {drv2['name']} ({drv2['full_name']})")
-            
+
             if "plot_annotations" in current_telemetry_context:
                 logging.info(f"Found {len(current_telemetry_context['plot_annotations'])} plot annotations")
                 for i, ann in enumerate(current_telemetry_context['plot_annotations']):
@@ -221,11 +221,19 @@ Driver 1: {drv1['full_name']} (Abbreviation: {drv1['name']})
 - Lap Time: {drv1['lap_time']:.3f} seconds
 - Top Speed: {drv1['max_speed']:.1f} km/h
 - Average Throttle: {drv1['avg_throttle']:.1f}%
+- Max RPM: {drv1['max_rpm']:.0f} RPM
+- Average RPM: {drv1['avg_rpm']:.0f} RPM
+- Gear Changes: {drv1['gear_stats']['gear_changes']} shifts
+- Gear Range: {drv1['gear_stats']['min_gear']}-{drv1['gear_stats']['max_gear']} (avg: {drv1['gear_stats']['avg_gear']:.1f})
 
 Driver 2: {drv2['full_name']} (Abbreviation: {drv2['name']})
 - Lap Time: {drv2['lap_time']:.3f} seconds
 - Top Speed: {drv2['max_speed']:.1f} km/h
 - Average Throttle: {drv2['avg_throttle']:.1f}%
+- Max RPM: {drv2['max_rpm']:.0f} RPM
+- Average RPM: {drv2['avg_rpm']:.0f} RPM
+- Gear Changes: {drv2['gear_stats']['gear_changes']} shifts
+- Gear Range: {drv2['gear_stats']['min_gear']}-{drv2['gear_stats']['max_gear']} (avg: {drv2['gear_stats']['avg_gear']:.1f})
 
 CRITICAL: Always use the correct driver names above. {drv1['name']} = {drv1['full_name']}, {drv2['name']} = {drv2['full_name']}.
 
@@ -233,6 +241,8 @@ Overall Comparison:
 - Faster Driver: {comparison['faster_driver']}
 - Lap Time Delta: {comparison['lap_time_delta']:.3f} seconds
 - Top Speed Difference: {comparison['speed_difference']:.1f} km/h
+- RPM Difference: {comparison['rpm_difference']:.0f} RPM
+- Gear Changes Difference: {comparison['gear_changes_difference']} shifts
 
 Sector Analysis:"""
 
@@ -248,13 +258,13 @@ Sector {sector['sector']}: {sector['faster_driver']} faster by {sector['delta']:
 
 PLOT ANNOTATIONS VISIBLE ON CURRENT TELEMETRY PLOT:
 The following {len(context['plot_annotations'])} key moments are marked with colored vertical lines and text annotations:"""
-        
+
         for i, annotation in enumerate(context["plot_annotations"]):
             context_text += f"""
 {i+1}. At {annotation['time']}: "{annotation['description']}"
    - Placed on the plot that best represents this moment
    - Telemetry data: {annotation.get('telemetry', {})}"""
-    
+
     if "visual_elements" in context:
         visual = context["visual_elements"]
         context_text += f"""
@@ -268,7 +278,7 @@ VISUAL PLOT ELEMENTS:
 
 VISIBLE PLOTS: The user can see 5 telemetry traces plotted against lap time:
 1. Throttle position (0-100%) - with annotations for throttle-related moments
-2. Brake pressure (0-100%) - with annotations for braking-related moments  
+2. Brake pressure (0-100%) - with annotations for braking-related moments
 3. Engine RPM - with annotations for gear/engine-related moments
 4. Speed (km/h) - with annotations for speed-related moments
 5. Gear (1-8) - step plot showing gear selection with gear change annotations
@@ -679,21 +689,21 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     # Calculate delta and find key moments with dynamic threshold
     delta = drv2_time - drv1_time
     delta_diff = np.diff(delta)
-    
+
     # Use a more meaningful threshold based on lap time difference
     total_lap_delta = abs(delta[-1] - delta[0])  # Total lap time difference
-    
+
     # Calculate multiple potential thresholds
     percentile_threshold = np.percentile(np.abs(delta_diff), 95)  # 95th percentile (less strict than 99th)
     delta_based_threshold = total_lap_delta * 0.05  # 5% of total delta (was 10%)
     min_threshold = 0.005  # Minimum 5ms change
-    
+
     # Use the most permissive threshold to ensure we catch significant moments
     min_significant_change = max(min_threshold, min(percentile_threshold, delta_based_threshold))
-    
+
     # Find moments where time difference changes significantly
     key_idxs = np.where(np.abs(delta_diff) > min_significant_change)[0]
-    
+
     # Filter out moments that are too close together (within 3 seconds) - keep most significant
     if len(key_idxs) > 1:
         # Create list of (index, time, significance) tuples
@@ -702,22 +712,22 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             time_point = drv1_time[idx]
             significance = abs(delta_diff[idx])
             moments_with_significance.append((idx, time_point, significance))
-        
+
         # Sort by time to process chronologically
         moments_with_significance.sort(key=lambda x: x[1])
-        
+
         filtered_moments = []
         for idx, time_point, significance in moments_with_significance:
             # Check if this moment is too close to any already selected moment
             too_close = False
             competing_moment = None
-            
+
             for selected_idx, selected_time, selected_significance in filtered_moments:
                 if abs(time_point - selected_time) < 3.0:  # Within 3 seconds
                     too_close = True
                     competing_moment = (selected_idx, selected_time, selected_significance)
                     break
-            
+
             if too_close and competing_moment:
                 # Replace if this moment is more significant
                 if significance > competing_moment[2]:
@@ -727,11 +737,11 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 # Otherwise skip this less significant moment
             elif not too_close:
                 filtered_moments.append((idx, time_point, significance))
-        
+
         # Extract just the indices, sorted by time
         filtered_moments.sort(key=lambda x: x[1])
         key_idxs = np.array([moment[0] for moment in filtered_moments])
-    
+
     # Debug logging
     logging.info(f"Threshold analysis: percentile_95={percentile_threshold:.4f}s, delta_based={delta_based_threshold:.4f}s, min={min_threshold:.4f}s")
     logging.info(f"Selected threshold: {min_significant_change:.4f}s")
@@ -839,7 +849,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
     def plot_gear_telemetry(ax, drv1_tel, drv2_tel, drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects):
         """Special plotting function for gear data with step plots and gear change annotations"""
-        
+
         # Plot gear as step function for both drivers
         ax.step(
             drv1_tel["Time"].dt.total_seconds(),
@@ -861,12 +871,12 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             alpha=0.9,
             path_effects=line_effects
         )
-        
+
         # Calculate and mark gear changes for both drivers
         def mark_gear_changes(telemetry, color, driver_abbr, offset_factor=1):
             gear_changes = []
             time_data = telemetry["Time"].dt.total_seconds()
-            
+
             for i in range(1, len(telemetry)):
                 if telemetry.iloc[i]['nGear'] != telemetry.iloc[i-1]['nGear']:
                     gear_changes.append({
@@ -875,17 +885,17 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                         'to_gear': int(telemetry.iloc[i]['nGear']),
                         'gear_level': telemetry.iloc[i]['nGear']
                     })
-            
+
             # Add gear change annotations
             for i, change in enumerate(gear_changes):
                 # Add vertical line at gear change
                 ax.axvline(x=change['time'], color=color, alpha=0.4, linewidth=1, linestyle=':', zorder=5)
-                
+
                 # Add annotation every few gear changes to avoid clutter
                 if i % 3 == 0:  # Show every 3rd gear change
                     y_pos = change['gear_level'] + (0.15 * offset_factor)
                     ax.annotate(
-                        f"{change['from_gear']}→{change['to_gear']}", 
+                        f"{change['from_gear']}→{change['to_gear']}",
                         xy=(change['time'], change['gear_level']),
                         xytext=(change['time'], y_pos),
                         ha='center', va='center',
@@ -895,18 +905,18 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                         path_effects=[pe.Stroke(linewidth=2, foreground='black'), pe.Normal()],
                         zorder=10
                     )
-            
+
             return gear_changes
-        
+
         # Mark gear changes for both drivers
         drv1_changes = mark_gear_changes(drv1_tel, drv1_color, drv1_abbr, 1)
         drv2_changes = mark_gear_changes(drv2_tel, drv2_color, drv2_abbr, -1)
-        
+
         # Set gear-specific styling
         ax.set_ylim(0.5, 8.5)
         ax.set_yticks(range(1, 9))
         ax.set_ylabel("Gear", **label_font)
-        
+
         logging.info(f"Gear changes - {drv1_abbr}: {len(drv1_changes)}, {drv2_abbr}: {len(drv2_changes)}")
 
     plot_telemetry(axes[0], drv1_tel, drv2_tel, "Throttle", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
@@ -916,7 +926,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     plot_telemetry(axes[2], drv1_tel, drv2_tel, "RPM", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
     plot_telemetry(axes[3], drv1_tel, drv2_tel, "Speed", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
     axes[3].set_ylabel("Speed (km/h)", **label_font)
-    
+
     # Special handling for gear plot - use step plot instead of line plot
     plot_gear_telemetry(axes[4], drv1_tel, drv2_tel, drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
     axes[4].set_ylabel("Gear", **label_font)
@@ -934,18 +944,18 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
     # --- Add Key Moment Annotations ---
     logging.info(f"Starting annotation process with {len(key_idxs)} significant moments")
-    
+
     # Add annotations for key moments
     annotation_colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b']
-    
+
     for i, idx in enumerate(key_idxs):
         try:
             logging.info(f"Processing annotation {i+1}/{len(key_idxs)} at index {idx}")
-            
+
             # Get telemetry values at this moment
             time_point = drv1_time[idx]
             logging.info(f"Time point for annotation {i}: {time_point}")
-            
+
             # Interpolate telemetry values for both drivers at this moment
             drv1_throttle = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Throttle"])
             drv2_throttle = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Throttle"])
@@ -955,9 +965,9 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
             drv1_rpm = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["RPM"])
             drv2_rpm = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["RPM"])
-            
+
             logging.info(f"Telemetry at moment {i}: T1={drv1_throttle:.1f}, T2={drv2_throttle:.1f}, V1={drv1_speed:.1f}, V2={drv2_speed:.1f}")
-            
+
             # Classify the moment
             moment_description = classify_moment(
                 t1=drv1_throttle,
@@ -970,33 +980,33 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 r2=drv2_rpm,
                 session_type=session.name
             )
-            
+
             logging.info(f"Moment description: {moment_description}")
-            
+
             # Skip minor/insignificant moments
             if any(word in moment_description.lower() for word in ['minor', 'slight difference', 'small']):
                 logging.info(f"Skipping minor moment: {moment_description}")
                 continue
-            
+
             # Add vertical line across all plots
             annotation_color = annotation_colors[i % len(annotation_colors)]
             for ax_idx, ax in enumerate(axes):
                 ax.axvline(x=time_point, color=annotation_color, alpha=0.3, linewidth=1, linestyle='--', zorder=10)
-            
+
             # Determine which plot the annotation should go on based on content
             plot_names = ["Throttle", "Brake", "RPM", "Speed", "Gear"]
             target_plot_idx = 0  # Default to Throttle plot
-            
+
             # Analyze the moment description to determine best plot placement
             description_lower = moment_description.lower()
-            
+
             # Priority order for keyword matching (most specific first)
             if any(word in description_lower for word in ['brake', 'braking', 'stopping', 'trail']):
                 target_plot_idx = 1  # Brake plot
             elif any(word in description_lower for word in ['gear', 'shift', 'selection', 'short']):
                 target_plot_idx = 4  # Gear plot
             elif any(word in description_lower for word in ['rpm', 'engine', 'rev', 'power band']):
-                target_plot_idx = 2  # RPM plot  
+                target_plot_idx = 2  # RPM plot
             elif any(word in description_lower for word in ['speed', 'velocity', 'fast', 'slow', 'mph', 'km/h', 'corner exit', 'straight']):
                 target_plot_idx = 3  # Speed plot
             elif any(word in description_lower for word in ['throttle', 'acceleration', 'power', 'pedal', 'gas']):
@@ -1007,19 +1017,19 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 brake_diff = abs(drv1_brake - drv2_brake)
                 speed_diff = abs(drv1_speed - drv2_speed)
                 rpm_diff = abs(drv1_rpm - drv2_rpm) if drv1_rpm > 0 and drv2_rpm > 0 else 0
-                
+
                 # Find which telemetry channel has the biggest difference
                 diffs = [throttle_diff, brake_diff, rpm_diff/100, speed_diff/10, 0]  # Normalize for comparison, gear gets 0 for fallback
                 target_plot_idx = diffs.index(max(diffs))
-                
+
                 logging.info(f"No keywords matched, using telemetry analysis: T={throttle_diff:.1f}, B={brake_diff:.1f}, R={rpm_diff:.0f}, S={speed_diff:.1f} -> {plot_names[target_plot_idx]}")
-            
+
             # Add annotation text to the determined plot
             ax = axes[target_plot_idx]
             y_min, y_max = ax.get_ylim()
             y_range = y_max - y_min
             y_position = y_max + (y_range * 0.02)  # Slightly above the top of the plot
-            
+
             ax.annotate(
                 moment_description,
                 xy=(time_point, y_max),
@@ -1040,17 +1050,17 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
                 zorder=11,
                 clip_on=False  # Allow text to extend outside plot area
             )
-            
+
             logging.info(f"Placed annotation '{moment_description}' on {plot_names[target_plot_idx]} plot")
-            
+
             logging.info(f"Added annotation to all plots: '{moment_description}' at {time_point:.1f}s with color {annotation_color}")
-            
+
         except Exception as e:
             logging.error(f"Failed to annotate moment {i}: {e}")
             import traceback
             logging.error(traceback.format_exc())
             continue
-    
+
     logging.info(f"Finished processing {len(key_idxs)} annotations")
 
     # Prepare sector data with correct coloring
@@ -1186,7 +1196,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     current_telemetry_context = extract_telemetry_context(
         session, drv1_abbr, drv2_abbr
     )
-    
+
     # Add annotation information to context
     annotation_info = []
     for i, idx in enumerate(key_idxs):
@@ -1198,13 +1208,13 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             drv2_brake = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Brake"])
             drv1_speed = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Speed"])
             drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
-            
+
             moment_description = classify_moment(
                 t1=drv1_throttle, t2=drv2_throttle, b1=drv1_brake, b2=drv2_brake,
                 v1=drv1_speed, v2=drv2_speed, r1=0, r2=0,  # Skip RPM for context
                 session_type=session.name
             )
-            
+
             annotation_info.append({
                 "time": f"{time_point:.1f}s",
                 "description": moment_description,
@@ -1223,7 +1233,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         "annotation_times": [ann["time"] for ann in annotation_info],
         "key_moments": [ann["description"] for ann in annotation_info]
     }
-    
+
     logging.info(f"Enhanced telemetry context with {len(annotation_info)} annotations")
 
     # Return all fields for template, including leader_abbr
