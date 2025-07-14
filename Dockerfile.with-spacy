@@ -2,18 +2,21 @@ FROM python:3.12-slim as builder
 
 WORKDIR /app
 
-# Install build dependencies and security updates
+# Install build dependencies for spaCy
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     gcc \
+    g++ \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install Python dependencies with uv
+# Install uv and Python dependencies
 COPY requirements.txt .
-RUN /root/.cargo/bin/uv pip install --no-cache-dir -r requirements.txt
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.cargo/bin/uv pip install --no-cache-dir -r requirements.txt
+
+# Download spaCy model if spaCy is installed
+RUN python -c "import spacy" 2>/dev/null && python -m spacy download en_core_web_sm || echo "spaCy not installed, skipping model download"
 
 # Final stage
 FROM python:3.12-slim

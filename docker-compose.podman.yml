@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  flask-app:
+    # Use localhost prefix for podman local images
+    image: localhost/f1-flask-app:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - PYTHONUNBUFFERED=1
+      - MATPLOTLIB_BACKEND=Agg
+      - PORT=8080
+    volumes:
+      # Add :Z suffix for SELinux compatibility
+      - ./fastf1_cache:/app/fastf1_cache:Z
+      - ./static/plots:/app/static/plots:Z
+      - ./logs:/app/logs:Z
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - f1-network
+    restart: unless-stopped
+    mem_limit: 8g
+    cpus: 2
+
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama:Z
+    networks:
+      - f1-network
+    restart: unless-stopped
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    mem_limit: 40g
+    cpus: 4
+
+volumes:
+  ollama_data:
+
+networks:
+  f1-network:
+    driver: bridge

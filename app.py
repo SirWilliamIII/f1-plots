@@ -50,6 +50,7 @@ else:
 app = Flask(__name__)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+print(f"DEBUG: OLLAMA_BASE_URL set to: {OLLAMA_BASE_URL}")
 
 os.environ["MPLBACKEND"] = "Agg"
 os.environ["MPLCONFIGDIR"] = "/tmp"
@@ -110,14 +111,16 @@ def timeout(seconds=30):
 def ollama_tags():
     """Proxy endpoint to check Ollama connection"""
     try:
+        print(f"DEBUG: Trying to connect to {OLLAMA_BASE_URL}/api/tags")
         resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         return Response(
             resp.content,
             status=resp.status_code,
             content_type=resp.headers.get("content-type"),
         )
-    except requests.exceptions.RequestException:
-        return jsonify({"error": "Ollama not available"}), 503
+    except requests.exceptions.RequestException as e:
+        print(f"DEBUG: Ollama connection failed: {e}")
+        return jsonify({"error": "Ollama not available", "url": OLLAMA_BASE_URL, "details": str(e)}), 503
 
 
 @app.route("/ollama_proxy/generate", methods=["POST"])
@@ -128,14 +131,16 @@ def ollama_generate():
     try:
         request_data = request.json.copy()
         user_prompt = request_data.get("prompt", "")
-        request_data["model"] = "f1expert"
+        request_data["model"] = "f1expert-fast"
 
-        # Performance optimizations
+        # Performance optimizations for speed
         request_data["options"] = {
-            "num_predict": 200,  # Limit response length for faster inference
-            "temperature": 0.3,  # Lower temperature for faster, more focused responses
-            "num_ctx": 2048,     # Smaller context window for faster processing
-            "repeat_penalty": 1.1
+            "num_predict": 150,  # Shorter responses for faster inference
+            "temperature": 0.1,  # Very low temperature for fastest, most focused responses
+            "num_ctx": 1024,    # Smaller context window for faster processing
+            "repeat_penalty": 1.1,
+            "top_p": 0.7,       # Nucleus sampling for faster generation
+            "num_thread": 4     # Use more CPU threads for faster processing
         }
 
         # 🔥 Inject telemetry context into the prompt
@@ -202,7 +207,7 @@ Base ALL responses on the specific comparison data provided."""
 
 
 def create_contextual_prompt(user_prompt, context):
-    """Create enhanced prompt with specific telemetry context"""
+    """Create optimized prompt with essential telemetry context for faster processing"""
 
     race_info = context["race_info"]
     drv1 = context["driver1"]
@@ -210,41 +215,18 @@ def create_contextual_prompt(user_prompt, context):
     comparison = context["comparison"]
     sectors = context["sectors"]
 
+    # Simplified context for faster processing
     context_text = f"""
-CURRENT TELEMETRY DATA BEING ANALYZED:
+F1 TELEMETRY ANALYSIS:
+{race_info['year']} {race_info['race_name']} - {race_info['session_type']}
 
-Race: {race_info['year']} {race_info['race_name']} - {race_info['session_type']}
-Track Length: {race_info['track_length']}
+DRIVERS:
+**{drv1['name']}** ({drv1['full_name']}): {drv1['lap_time']:.3f}s, {drv1['max_speed']:.0f} km/h
+**{drv2['name']}** ({drv2['full_name']}): {drv2['lap_time']:.3f}s, {drv2['max_speed']:.0f} km/h
 
-IMPORTANT - DRIVER IDENTIFICATION:
-Driver 1: {drv1['full_name']} (Abbreviation: {drv1['name']})
-- Lap Time: {drv1['lap_time']:.3f} seconds
-- Top Speed: {drv1['max_speed']:.1f} km/h
-- Average Throttle: {drv1['avg_throttle']:.1f}%
-- Max RPM: {drv1['max_rpm']:.0f} RPM
-- Average RPM: {drv1['avg_rpm']:.0f} RPM
-- Gear Changes: {drv1['gear_stats']['gear_changes']} shifts
-- Gear Range: {drv1['gear_stats']['min_gear']}-{drv1['gear_stats']['max_gear']} (avg: {drv1['gear_stats']['avg_gear']:.1f})
+RESULT: **{comparison['faster_driver']}** faster by {comparison['lap_time_delta']:.3f}s
 
-Driver 2: {drv2['full_name']} (Abbreviation: {drv2['name']})
-- Lap Time: {drv2['lap_time']:.3f} seconds
-- Top Speed: {drv2['max_speed']:.1f} km/h
-- Average Throttle: {drv2['avg_throttle']:.1f}%
-- Max RPM: {drv2['max_rpm']:.0f} RPM
-- Average RPM: {drv2['avg_rpm']:.0f} RPM
-- Gear Changes: {drv2['gear_stats']['gear_changes']} shifts
-- Gear Range: {drv2['gear_stats']['min_gear']}-{drv2['gear_stats']['max_gear']} (avg: {drv2['gear_stats']['avg_gear']:.1f})
-
-CRITICAL: Always use the correct driver names above. {drv1['name']} = {drv1['full_name']}, {drv2['name']} = {drv2['full_name']}.
-
-Overall Comparison:
-- Faster Driver: {comparison['faster_driver']}
-- Lap Time Delta: {comparison['lap_time_delta']:.3f} seconds
-- Top Speed Difference: {comparison['speed_difference']:.1f} km/h
-- RPM Difference: {comparison['rpm_difference']:.0f} RPM
-- Gear Changes Difference: {comparison['gear_changes_difference']} shifts
-
-Sector Analysis:"""
+SECTORS:"""
 
     for sector in sectors:
         context_text += f"""
@@ -252,42 +234,20 @@ Sector {sector['sector']}: {sector['faster_driver']} faster by {sector['delta']:
 - {drv1['name']}: {sector['driver1_time']:.3f}s
 - {drv2['name']}: {sector['driver2_time']:.3f}s"""
 
-    # Add plot annotations if available
+    # Add key moments (simplified)
     if "plot_annotations" in context and context["plot_annotations"]:
         context_text += f"""
 
-PLOT ANNOTATIONS VISIBLE ON CURRENT TELEMETRY PLOT:
-The following {len(context['plot_annotations'])} key moments are marked with colored vertical lines and text annotations:"""
-
-        for i, annotation in enumerate(context["plot_annotations"]):
+KEY MOMENTS:"""
+        for i, annotation in enumerate(context["plot_annotations"][:3]):  # Limit to 3 most important
             context_text += f"""
-{i+1}. At {annotation['time']}: "{annotation['description']}"
-   - Placed on the plot that best represents this moment
-   - Telemetry data: {annotation.get('telemetry', {})}"""
-
-    if "visual_elements" in context:
-        visual = context["visual_elements"]
-        context_text += f"""
-
-VISUAL PLOT ELEMENTS:
-- Total annotations shown: {visual.get('total_annotations', 0)}
-- Key moment times: {', '.join(visual.get('annotation_times', []))}
-- Racing insights: {', '.join(visual.get('key_moments', []))}"""
+- {annotation['time']}: {annotation['description']}"""
 
     context_text += f"""
 
-VISIBLE PLOTS: The user can see 5 telemetry traces plotted against lap time:
-1. Throttle position (0-100%) - with annotations for throttle-related moments
-2. Brake pressure (0-100%) - with annotations for braking-related moments
-3. Engine RPM - with annotations for gear/engine-related moments
-4. Speed (km/h) - with annotations for speed-related moments
-5. Gear (1-8) - step plot showing gear selection with gear change annotations
+QUESTION: {user_prompt}
 
-Each significant racing moment is marked with a colored vertical line across all plots and descriptive text above the most relevant plot.
-
-User Question: {user_prompt}
-
-Answer based ONLY on this specific data and the exact annotations visible in the current plots. Reference the specific times and descriptions listed above."""
+Provide a concise analysis focusing on the key differences between the drivers."""
 
     return context_text
 

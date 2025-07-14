@@ -1,0 +1,13 @@
+# Core dependencies for F1 app without spaCy
+flask>=3.0.0
+fastf1>=3.5.0
+matplotlib>=3.8.0
+numpy>=1.26.0
+pandas>=2.2.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+flask-compress>=1.14.0
+flask-cors>=4.0.0
+prometheus-client>=0.20.0
+gunicorn>=23.0.0
+ollama>=0.3.0

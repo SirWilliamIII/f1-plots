@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  flask-app:
+    image: f1-flask-app:latest
+    ports:
+      - "80:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - PYTHONUNBUFFERED=1
+      - MATPLOTLIB_BACKEND=Agg
+      - PORT=8080
+    volumes:
+      - ./fastf1_cache:/app/fastf1_cache
+      - ./static/plots:/app/static/plots
+      - ./logs:/app/logs
+    networks:
+      - f1-network
+    restart: unless-stopped
+    mem_limit: 8g
+    cpus: 2
+
+networks:
+  f1-network:
+    driver: bridge

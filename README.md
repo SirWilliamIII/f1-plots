@@ -15,12 +15,15 @@ A web application for visualizing and comparing Formula 1 telemetry data with AI
 
 ## Quick Start
 
-### Option 1: Python
+### Option 1: Python with uv
 
 ```bash
 git clone https://github.com/yourusername/f1-race-plots.git
 cd f1-race-plots
-pip install -r requirements.txt
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install dependencies with uv
+uv pip install -r requirements.txt
 python app.py
 ```
 
@@ -40,6 +43,35 @@ Visit [http://localhost:8080](http://localhost:8080)
 ```bash
 docker-compose up
 ```
+
+### Option 4: Podman
+
+#### Method A: Using deploy-podman.sh (Recommended)
+
+```bash
+# Install Podman if not already installed
+# For Ubuntu/Debian: sudo apt install podman
+# For macOS: brew install podman
+# For other systems: https://podman.io/getting-started/installation
+
+# Run the deployment script
+./deploy-podman.sh
+```
+
+Visit [http://localhost:8080](http://localhost:8080)
+
+#### Method B: Using podman-compose
+
+```bash
+# Install Podman if not already installed
+# For Ubuntu/Debian: sudo apt install podman
+# For macOS: brew install podman
+
+# Use the wrapper script (installs podman-compose if needed)
+./podman-compose-wrapper.sh up -d
+```
+
+Visit [http://localhost:8080](http://localhost:8080)
 
 ## Architecture
 
@@ -72,6 +104,52 @@ Environment variables:
 - `PORT`: Application port (default: 8080)
 - `OLLAMA_BASE_URL`: Ollama service URL
 - `FLASK_ENV`: Environment (development/production)
+
+## SSL Setup with Nginx and Cloudflare
+
+### Prerequisites
+- A domain name registered with Cloudflare
+- A server with Docker and docker-compose installed
+- Port 80 and 443 open on your server
+
+### Step 1: Configure Cloudflare DNS
+1. Log in to your Cloudflare account
+2. Select your domain
+3. Go to the DNS tab
+4. Add A records pointing to your server's IP address:
+   - Type: A, Name: @ (or your subdomain), Content: YOUR_SERVER_IP
+   - Type: A, Name: www, Content: YOUR_SERVER_IP
+5. Set the proxy status to "DNS only" (gray cloud) initially
+
+### Step 2: Set Up SSL with Let's Encrypt
+1. Clone this repository to your server
+2. Make the initialization script executable:
+   ```bash
+   chmod +x init-letsencrypt.sh
+   ```
+3. Run the script and follow the prompts:
+   ```bash
+   ./init-letsencrypt.sh
+   ```
+4. The script will:
+   - Ask for your domain name and email
+   - Create temporary certificates
+   - Obtain real certificates from Let's Encrypt
+   - Configure Nginx with your domain
+
+### Step 3: Start the Application with SSL
+```bash
+docker-compose -f docker-compose.ssl.yml up -d
+```
+
+### Step 4: Update Cloudflare Settings (Optional)
+1. Go back to Cloudflare DNS settings
+2. Change the proxy status to "Proxied" (orange cloud)
+3. Go to SSL/TLS settings and set the encryption mode to "Full" or "Full (strict)"
+
+This setup provides:
+- HTTPS encryption with auto-renewing certificates
+- Optional Cloudflare proxy for additional security and performance
 
 ## Development
 

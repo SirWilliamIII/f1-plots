@@ -1,0 +1,22 @@
+[project]
+name = "f1-race-plots"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0.0",
+    "fastf1>=3.5.0",
+    "matplotlib>=3.8.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "flask-compress>=1.14.0",
+    "flask-cors>=4.0.0",
+    "prometheus-client>=0.20.0",
+    "gunicorn>=23.0.0",
+    "ollama>=0.3.0",
+    "spacy>=3.8.7",
+    "pip>=25.1.1",
+]
