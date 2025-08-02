@@ -19,4 +19,5 @@ dependencies = [
     "ollama>=0.3.0",
     "spacy>=3.8.7",
     "pip>=25.1.1",
+    "psutil>=6.2.0",
 ]

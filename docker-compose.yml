@@ -24,7 +24,7 @@ services:
     cpus: 2
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/qwen2.5-coder:7b
     ports:
       - "11434:11434"
     volumes:

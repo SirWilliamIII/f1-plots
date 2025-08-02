@@ -17,8 +17,8 @@ class SessionManagerConfig:
     max_workers: int = 2
     enable_preloading: bool = True
 
-    # Cache configuration
-    max_cache_size: int = 50  # Maximum number of sessions to cache
+    # Cache configuration  
+    max_cache_size: int = 10  # Maximum number of sessions to cache (reduced for memory)
     cache_directory: str = "fastf1_cache"
 
     # Performance tuning
@@ -32,18 +32,10 @@ class SessionManagerConfig:
         """Set default popular sessions if not provided"""
         if self.popular_sessions is None:
             self.popular_sessions = [
-                # 2024 Most Popular
+                # Only preload the most popular sessions to save memory
                 (2024, "Monaco Grand Prix", "Q"),
-                (2024, "Monaco Grand Prix", "R"),
-                (2024, "Spanish Grand Prix", "Q"),
-                (2024, "Spanish Grand Prix", "R"),
                 (2024, "British Grand Prix", "Q"),
-                (2024, "British Grand Prix", "R"),
-                # 2023 Classics
                 (2023, "Monaco Grand Prix", "Q"),
-                (2023, "Monaco Grand Prix", "R"),
-                (2023, "Spanish Grand Prix", "Q"),
-                (2023, "British Grand Prix", "Q"),
             ]
 
 
@@ -59,6 +51,11 @@ class FlaskConfig:
     # Request handling
     max_content_length: int = 16 * 1024 * 1024  # 16MB
     request_timeout: int = 300  # 5 minutes
+
+    # Memory management
+    enable_gc_after_request: bool = True  # Force garbage collection after requests
+    memory_threshold_mb: int = 300  # Trigger cleanup when app uses more than this
+    matplotlib_cleanup: bool = True  # Clear matplotlib figures after use
 
     # Logging
     log_level: str = "INFO"

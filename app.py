@@ -28,6 +28,12 @@ from dotenv import load_dotenv
 from utils import classify_moment, extract_telemetry_context
 from flask_compress import Compress
 from flask_cors import CORS
+import psutil
+import gc
+import tracemalloc
+from datetime import datetime
+import threading
+import time
 from matplotlib.ticker import FuncFormatter
 from datetime import datetime
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -65,6 +71,30 @@ CORS(app)
 # Initialize FastF1 cache and session manager
 initialize_fastf1_cache("fastf1_cache")
 
+# Memory management functions
+def force_garbage_collection():
+    """Force garbage collection and return memory freed"""
+    before = psutil.Process().memory_info().rss
+    gc.collect()
+    after = psutil.Process().memory_info().rss
+    freed_mb = (before - after) / (1024 * 1024)
+    return freed_mb
+
+def check_memory_usage():
+    """Check current memory usage and trigger cleanup if needed"""
+    from config import FLASK_CONFIG
+    current_memory = psutil.Process().memory_info().rss / (1024 * 1024)
+    if current_memory > FLASK_CONFIG.memory_threshold_mb:
+        freed = force_garbage_collection()
+        logging.info(f"Memory cleanup: freed {freed:.1f}MB, current: {current_memory:.1f}MB")
+        return True
+    return False
+
+def cleanup_matplotlib():
+    """Clean up matplotlib resources"""
+    plt.close('all')
+    gc.collect()
+
 # Initialize the global session manager with optimized settings
 session_manager = SessionManager(
     max_workers=2,  # 2 background threads for preloading
@@ -85,6 +115,21 @@ REQUEST_LATENCY = Histogram(
 PLOT_GENERATION_TIME = Histogram(
     "plot_generation_seconds", "Time taken to generate plots"
 )
+
+# Memory management hooks
+@app.after_request
+def after_request_cleanup(response):
+    """Clean up memory after each request"""
+    from config import FLASK_CONFIG
+    
+    if FLASK_CONFIG.enable_gc_after_request:
+        # Always do light cleanup
+        gc.collect()
+        
+        # Check if we need aggressive cleanup
+        check_memory_usage()
+    
+    return response
 
 
 def timeout(seconds=30):
@@ -131,7 +176,7 @@ def ollama_generate():
     try:
         request_data = request.json.copy()
         user_prompt = request_data.get("prompt", "")
-        request_data["model"] = "f1expert-fast"
+        request_data["model"] = "f1expert:latest"
 
         # Performance optimizations for speed
         request_data["options"] = {
@@ -204,6 +249,87 @@ Base ALL responses on the specific comparison data provided."""
     except Exception as e:
         logging.error(f"Ollama proxy error: {e}")
         return jsonify({"error": "Failed to connect to Ollama"}), 503
+
+
+@app.route("/api/analyze_moment", methods=["POST"])
+def analyze_moment():
+    """Analyze a specific moment from the telemetry plot"""
+    try:
+        global current_telemetry_context
+        
+        if not current_telemetry_context:
+            return jsonify({"error": "No telemetry data available"}), 400
+        
+        data = request.json
+        moment_id = data.get("moment_id")
+        
+        if not moment_id:
+            return jsonify({"error": "No moment_id provided"}), 400
+        
+        # Find the specific moment
+        moment = None
+        for m in current_telemetry_context.get("plot_annotations", []):
+            if m["id"] == moment_id:
+                moment = m
+                break
+        
+        if not moment:
+            return jsonify({"error": f"Moment {moment_id} not found"}), 404
+        
+        # Create specialized prompt for moment analysis
+        race_info = current_telemetry_context["race_info"]
+        drv1 = current_telemetry_context["driver1"]
+        drv2 = current_telemetry_context["driver2"]
+        
+        moment_prompt = f"""Analyze this specific racing moment from the telemetry comparison:
+
+**{race_info['year']} {race_info['race_name']} - {race_info['session_type']}**
+**Time:** {moment['time']}
+**Drivers:** {drv1['name']} vs {drv2['name']}
+
+**What happened:** {moment['description']}
+
+**Telemetry at this moment:**
+- {drv1['name']}: Throttle {moment['telemetry'][drv1['name']]['throttle']}, Brake {moment['telemetry'][drv1['name']]['brake']}, Speed {moment['telemetry'][drv1['name']]['speed']}, RPM {moment['telemetry'][drv1['name']]['rpm']}, {moment['telemetry'][drv1['name']]['gear']}
+- {drv2['name']}: Throttle {moment['telemetry'][drv2['name']]['throttle']}, Brake {moment['telemetry'][drv2['name']]['brake']}, Speed {moment['telemetry'][drv2['name']]['speed']}, RPM {moment['telemetry'][drv2['name']]['rpm']}, {moment['telemetry'][drv2['name']]['gear']}
+
+Explain what technique advantage occurred here and why it made a difference. Be specific about the driving technique and its impact on lap time."""
+
+        # Forward to Ollama with optimized settings
+        request_data = {
+            "model": "llama3.2:latest",
+            "prompt": moment_prompt,
+            "stream": data.get("stream", True),
+            "options": {
+                "temperature": 0.3,
+                "num_predict": 200,
+                "stop": ["</s>", "\n\n\n"]
+            }
+        }
+        
+        resp = requests.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json=request_data,
+            stream=request_data.get("stream", False),
+            timeout=60,
+        )
+        
+        if request_data.get("stream", False):
+            return Response(
+                stream_with_context(resp.iter_content(chunk_size=1024)),
+                content_type=resp.headers.get("content-type"),
+                status=resp.status_code,
+            )
+        else:
+            return Response(
+                resp.content,
+                status=resp.status_code,
+                content_type=resp.headers.get("content-type"),
+            )
+    
+    except Exception as e:
+        logging.error(f"Moment analysis error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 def create_contextual_prompt(user_prompt, context):
@@ -490,6 +616,11 @@ def index():
                 driver_comparison = f"{drv1_abbr}  {drv2_abbr}"
                 session_name = "Qualifying" if session_type == "Q" else "Race"
 
+                # Get moment details from telemetry context for the template
+                moment_annotations = []
+                if current_telemetry_context and "plot_annotations" in current_telemetry_context:
+                    moment_annotations = current_telemetry_context["plot_annotations"]
+
                 # Only use the values returned from compare_fastest_laps
                 return render_template(
                     "result.html",
@@ -512,6 +643,7 @@ def index():
                     drv2_position=drv2_position,
                     drv2_lap_gap=drv2_lap_gap,
                     leader_abbr=leader_abbr,
+                    moment_annotations=moment_annotations,
                 )
             except Exception as e:
                 import traceback
@@ -907,6 +1039,9 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
     # Add annotations for key moments
     annotation_colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b']
+    
+    # Store moment details for interactive analysis
+    moment_details = []
 
     for i, idx in enumerate(key_idxs):
         try:
@@ -925,6 +1060,9 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
             drv1_rpm = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["RPM"])
             drv2_rpm = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["RPM"])
+            # For gear, use nearest neighbor interpolation since gears are discrete
+            drv1_gear = int(np.round(np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["nGear"])))
+            drv2_gear = int(np.round(np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["nGear"])))
 
             logging.info(f"Telemetry at moment {i}: T1={drv1_throttle:.1f}, T2={drv2_throttle:.1f}, V1={drv1_speed:.1f}, V2={drv2_speed:.1f}")
 
@@ -947,6 +1085,32 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             if any(word in moment_description.lower() for word in ['minor', 'slight difference', 'small']):
                 logging.info(f"Skipping minor moment: {moment_description}")
                 continue
+            
+            # Store full moment details
+            moment_id = len(moment_details) + 1
+            moment_data = {
+                'id': moment_id,
+                'time': time_point,
+                'description': moment_description,
+                'telemetry': {
+                    drv1_abbr: {
+                        'throttle': drv1_throttle,
+                        'brake': drv1_brake,
+                        'speed': drv1_speed,
+                        'rpm': drv1_rpm,
+                        'gear': drv1_gear
+                    },
+                    drv2_abbr: {
+                        'throttle': drv2_throttle,
+                        'brake': drv2_brake,
+                        'speed': drv2_speed,
+                        'rpm': drv2_rpm,
+                        'gear': drv2_gear
+                    }
+                },
+                'distance': common_dist[idx]
+            }
+            moment_details.append(moment_data)
 
             # Add vertical line across all plots
             annotation_color = annotation_colors[i % len(annotation_colors)]
@@ -990,14 +1154,17 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
             y_range = y_max - y_min
             y_position = y_max + (y_range * 0.02)  # Slightly above the top of the plot
 
+            # Use short label for display
+            short_label = f"Moment {moment_id}"
+            
             ax.annotate(
-                moment_description,
+                short_label,
                 xy=(time_point, y_max),
                 xytext=(time_point, y_position),
                 ha='center',
                 va='bottom',
                 color=annotation_color,
-                fontsize=9,
+                fontsize=10,
                 fontweight='bold',
                 bbox=dict(
                     boxstyle="round,pad=0.3",
@@ -1081,6 +1248,12 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         edgecolor="none",
     )
     plt.close(fig)
+    
+    # Additional memory cleanup
+    from config import FLASK_CONFIG
+    if FLASK_CONFIG.matplotlib_cleanup:
+        cleanup_matplotlib()
+    
     plot_buffer.seek(0)
 
     # 🔥 RETURN values
@@ -1157,44 +1330,39 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         session, drv1_abbr, drv2_abbr
     )
 
-    # Add annotation information to context
-    annotation_info = []
-    for i, idx in enumerate(key_idxs):
-        try:
-            time_point = drv1_time[idx]
-            drv1_throttle = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Throttle"])
-            drv2_throttle = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Throttle"])
-            drv1_brake = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Brake"])
-            drv2_brake = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Brake"])
-            drv1_speed = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Speed"])
-            drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
-
-            moment_description = classify_moment(
-                t1=drv1_throttle, t2=drv2_throttle, b1=drv1_brake, b2=drv2_brake,
-                v1=drv1_speed, v2=drv2_speed, r1=0, r2=0,  # Skip RPM for context
-                session_type=session.name
-            )
-
-            annotation_info.append({
-                "time": f"{time_point:.1f}s",
-                "description": moment_description,
-                "telemetry": {
-                    f"{drv1_abbr}": {"throttle": f"{drv1_throttle:.0f}%", "brake": f"{drv1_brake:.0f}%", "speed": f"{drv1_speed:.0f} km/h"},
-                    f"{drv2_abbr}": {"throttle": f"{drv2_throttle:.0f}%", "brake": f"{drv2_brake:.0f}%", "speed": f"{drv2_speed:.0f} km/h"}
+    # Add moment details to context
+    current_telemetry_context["moment_details"] = moment_details
+    current_telemetry_context["plot_annotations"] = [
+        {
+            "id": m["id"],
+            "time": f"{m['time']:.1f}s",
+            "description": m["description"],
+            "telemetry": {
+                drv1_abbr: {
+                    "throttle": f"{m['telemetry'][drv1_abbr]['throttle']:.0f}%",
+                    "brake": f"{m['telemetry'][drv1_abbr]['brake']:.0f}%",
+                    "speed": f"{m['telemetry'][drv1_abbr]['speed']:.0f} km/h",
+                    "rpm": f"{m['telemetry'][drv1_abbr]['rpm']:.0f}",
+                    "gear": f"Gear {m['telemetry'][drv1_abbr]['gear']}"
+                },
+                drv2_abbr: {
+                    "throttle": f"{m['telemetry'][drv2_abbr]['throttle']:.0f}%",
+                    "brake": f"{m['telemetry'][drv2_abbr]['brake']:.0f}%",
+                    "speed": f"{m['telemetry'][drv2_abbr]['speed']:.0f} km/h",
+                    "rpm": f"{m['telemetry'][drv2_abbr]['rpm']:.0f}",
+                    "gear": f"Gear {m['telemetry'][drv2_abbr]['gear']}"
                 }
-            })
-        except:
-            continue
-
-    # Add visual plot information to context
-    current_telemetry_context["plot_annotations"] = annotation_info
+            }
+        }
+        for m in moment_details
+    ]
     current_telemetry_context["visual_elements"] = {
-        "total_annotations": len(annotation_info),
-        "annotation_times": [ann["time"] for ann in annotation_info],
-        "key_moments": [ann["description"] for ann in annotation_info]
+        "total_annotations": len(moment_details),
+        "annotation_times": [f"{m['time']:.1f}s" for m in moment_details],
+        "key_moments": [m["description"] for m in moment_details]
     }
 
-    logging.info(f"Enhanced telemetry context with {len(annotation_info)} annotations")
+    logging.info(f"Enhanced telemetry context with {len(moment_details)} annotations")
 
     # Return all fields for template, including leader_abbr
     return (
@@ -1241,6 +1409,125 @@ def handle_exception(e):
     return render_template("error.html", error_message=str(e)), 500
 
 
+# Memory monitoring endpoints and functionality
+class MemoryMonitor:
+    def __init__(self):
+        self.process = psutil.Process()
+        self.start_time = datetime.now()
+        self.memory_samples = []
+        self.max_samples = 1000
+        tracemalloc.start()
+        
+    def get_memory_info(self):
+        memory_info = self.process.memory_info()
+        return {
+            'rss_mb': memory_info.rss / 1024 / 1024,
+            'vms_mb': memory_info.vms / 1024 / 1024,
+            'percent': self.process.memory_percent(),
+            'available_mb': psutil.virtual_memory().available / 1024 / 1024,
+            'swap_used_mb': psutil.swap_memory().used / 1024 / 1024,
+        }
+    
+    def get_top_allocations(self, limit=10):
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics('lineno')
+        return [
+            {
+                'file': stat.traceback.format()[0],
+                'size_mb': stat.size / 1024 / 1024,
+                'count': stat.count
+            }
+            for stat in top_stats[:limit]
+        ]
+    
+    def record_sample(self):
+        sample = {
+            'timestamp': datetime.now().isoformat(),
+            'memory': self.get_memory_info()
+        }
+        self.memory_samples.append(sample)
+        if len(self.memory_samples) > self.max_samples:
+            self.memory_samples.pop(0)
+        return sample
+
+# Initialize memory monitor
+memory_monitor = MemoryMonitor()
+
+# Background thread to collect memory samples
+def memory_sampling_thread():
+    while True:
+        try:
+            memory_monitor.record_sample()
+            time.sleep(60)  # Sample every minute
+        except Exception as e:
+            logging.error(f"Memory sampling error: {e}")
+
+# Start memory sampling thread
+sampling_thread = threading.Thread(target=memory_sampling_thread, daemon=True)
+sampling_thread.start()
+
+@app.route('/memory_status')
+def memory_status():
+    """Endpoint to check current memory usage"""
+    try:
+        current = memory_monitor.get_memory_info()
+        top_allocations = memory_monitor.get_top_allocations()
+        
+        # Force garbage collection
+        gc.collect()
+        after_gc = memory_monitor.get_memory_info()
+        
+        return jsonify({
+            'current_memory': current,
+            'after_gc': after_gc,
+            'gc_freed_mb': current['rss_mb'] - after_gc['rss_mb'],
+            'top_allocations': top_allocations,
+            'uptime_minutes': (datetime.now() - memory_monitor.start_time).total_seconds() / 60,
+            'sample_count': len(memory_monitor.memory_samples)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/memory_history')
+def memory_history():
+    """Get memory usage history"""
+    return jsonify({
+        'samples': memory_monitor.memory_samples[-100:]  # Last 100 samples
+    })
+
+@app.route('/force_gc', methods=['POST'])
+def force_gc():
+    """Force garbage collection"""
+    before = memory_monitor.get_memory_info()
+    gc.collect()
+    after = memory_monitor.get_memory_info()
+    
+    return jsonify({
+        'before': before,
+        'after': after,
+        'freed_mb': before['rss_mb'] - after['rss_mb']
+    })
+
+# Memory-aware request wrapper
+def monitor_request_memory(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        before = memory_monitor.get_memory_info()
+        result = f(*args, **kwargs)
+        after = memory_monitor.get_memory_info()
+        
+        # Log if request used more than 50MB
+        memory_used = after['rss_mb'] - before['rss_mb']
+        if memory_used > 50:
+            logging.warning(f"High memory usage in {f.__name__}: {memory_used:.2f}MB")
+            
+        return result
+    return decorated_function
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = 5052
+    logging.info(f"🚀 Starting Flask app on port: {port}")
+    logging.info(f"🌐 Access the app at: http://localhost:{port}")
+    app.run(debug=True, host='0.0.0.0', port=port)
     
