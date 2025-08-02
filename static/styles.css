@@ -1231,41 +1231,60 @@ body {
 .plot-section {
   flex: 3 1 0;
   min-width: 0;
-  align-items: flex-end;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 0;
   margin: 0;
   background: rgba(0, 0, 0, 0.2);
   display: flex;
   height: 100%;
+  position: relative;
 }
 .plot-container {
   width: 100%;
-  max-width: 95vw;
-  max-height: 100%;
   height: 100%;
   display: flex;
-  justify-content: flex-start;
-  align-items: stretch;
+  justify-content: center;
+  align-items: center;
   background: #18191a;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
   margin: 0;
-  padding: 0;
+  padding: 8px;
+  position: relative;
+  box-sizing: border-box;
 }
 .plot-container img {
-  width: 100%;
-  height: 100%;
-  max-width: 95vw;
+  width: auto;
+  height: auto;
+  max-width: 100%;
   max-height: 100%;
   display: block;
   object-fit: contain;
+  object-position: center;
   border-radius: 4px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  margin: 0;
+  margin: auto;
   padding: 0;
+}
+
+/* For wider screens, prioritize filling the height */
+@media (min-width: 1600px) and (min-aspect-ratio: 16/9) {
+  .plot-container img {
+    height: 98%;
+    width: auto;
+  }
+}
+
+/* For very wide screens, ensure we don't stretch too much */
+@media (min-width: 2000px) {
+  .plot-container img {
+    max-height: 95%;
+    height: auto;
+    width: auto;
+  }
 }
 .plot-loading {
   padding: 40px;
@@ -1276,21 +1295,46 @@ body {
   min-width: 320px;
   max-width: 340px;
   width: 340px;
-  padding: 0.5em 0.5em 0.5em 0.2em;
+  padding: 0.3em 0.3em 0.3em 0.15em;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 1.2em;
+  gap: 0.6em;
   overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 107, 107, 0.3) transparent;
+}
+
+/* Custom scrollbar for driver info sidebar */
+.driver-info-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.driver-info-sidebar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.driver-info-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 107, 107, 0.4);
+  border-radius: 3px;
+}
+
+.driver-info-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 107, 107, 0.6);
 }
 .lap-time-delta {
-  margin-top: 32px;
+  margin-top: 16px;
   text-align: center;
-  font-size: 1.25em;
+  font-size: 1.1em;
   font-weight: bold;
   color: #ffe600;
   letter-spacing: 0.5px;
   width: 100%;
+  padding: 0.4em;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
 }
 .f1-ai-btn-container {
   display: flex;
@@ -1345,13 +1389,32 @@ body {
   }
 
   .header {
-    flex: 0 0 48px;
-    height: 48px;
+    flex: 0 0 auto;
+    min-height: 48px;
+    height: auto;
+    padding: 0.75em 1.5em;
+  }
+  
+  .header-content {
+    flex-wrap: wrap;
+    gap: 0.8em;
+    justify-content: space-between;
+  }
+  
+  .header-title {
+    font-size: 0.95rem;
+    margin-right: auto;
+  }
+  
+  .header-link,
+  .header-btn {
+    font-size: 0.9rem;
+    padding: 0.4em 0.8em;
   }
 
   .main-content-flex {
     flex: 1 1 auto;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 60px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1360,8 +1423,8 @@ body {
   }
 
   .plot-section {
-    flex: 0 0 65%;
-    height: 65%;
+    flex: 1 1 60%;
+    min-height: 50%;
     width: 100%;
     margin: 0;
     padding: 0;
@@ -1373,19 +1436,19 @@ body {
     height: 100%;
     width: 100%;
     margin: 0;
-    padding: 0;
+    padding: 4px;
     overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
+    box-sizing: border-box;
   }
 
   .plot-container img {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
+    object-position: center;
   }
 
   .driver-info-sidebar {
@@ -1394,23 +1457,26 @@ body {
     flex-wrap: wrap !important;
     justify-content: space-between !important;
     align-items: flex-start !important;
-    gap: 1.5em !important;
-    padding: 1em !important;
-    width: 95% !important;
-    margin: 0 auto !important;
+    gap: 0.8em !important;
+    padding: 0.8em !important;
+    width: 100% !important;
+    margin: 0 !important;
     box-sizing: border-box !important;
-    flex: 0 0 auto !important;
+    flex: 1 1 40% !important;
     height: auto !important;
     min-height: 0 !important;
+    max-height: 40vh !important;
+    overflow-y: auto !important;
+    background: rgba(0, 0, 0, 0.1);
   }
 
   .driver-info-sidebar .f1tv-driver-panel {
-    flex: 0 0 calc(50% - 0.75em) !important;
-    max-width: calc(50% - 0.75em) !important;
-    min-width: 280px !important;
+    flex: 0 0 calc(50% - 0.4em) !important;
+    max-width: calc(50% - 0.4em) !important;
+    min-width: 250px !important;
     margin: 0 !important;
-    padding: 1em !important;
-    font-size: 0.95em !important;
+    padding: 0.6em !important;
+    font-size: 0.9em !important;
     height: fit-content !important;
   }
 
@@ -1459,9 +1525,10 @@ body {
     flex-basis: 100% !important;
     width: 100% !important;
     text-align: center !important;
-    margin-top: 1em !important;
-    font-size: 1.4em !important;
+    margin-top: 0.5em !important;
+    font-size: 1.2em !important;
     order: 3 !important;
+    padding: 0.3em;
   }
 
   /* AI button for stacked layout */
@@ -1474,49 +1541,70 @@ body {
 /* 1024px - Tablets landscape (stacked layout adjustments) */
 @media (max-width: 1024px) {
   .plot-section {
-    flex: 0 0 60%;
-    height: 60%;
+    flex: 1 1 55%;
+    min-height: 45%;
   }
-
+  
   .driver-info-sidebar {
-    flex: 0 0 40%;
-    height: 40%;
-    padding: 0.4em;
+    flex: 1 1 45%;
+    max-height: 45vh;
+    padding: 0.6em;
+    gap: 0.6em !important;
+  }
+  
+  .driver-info-sidebar .f1tv-driver-panel {
+    padding: 0.5em !important;
   }
 
   .header {
-    padding: 0 1.5em;
-  }
-
-  .header-title {
-    font-size: 0.95rem;
-  }
-
-  .header-content {
-    gap: 1.2em;
-  }
-}
-
-/* 900px - Tablets portrait (stacked layout fine-tuning) */
-@media (max-width: 900px) {
-  .plot-section {
-    flex: 0 0 55%;
-    height: 55%;
-  }
-
-  .driver-info-sidebar {
-    flex: 0 0 45%;
-    height: 45%;
-    padding: 0.4em;
-  }
-
-  .header-content {
-    flex-wrap: wrap;
-    gap: 1em;
+    padding: 0.6em 1.2em;
+    min-height: 44px;
   }
 
   .header-title {
     font-size: 0.9rem;
+  }
+
+  .header-content {
+    gap: 0.8em;
+  }
+  
+  .header-link,
+  .header-btn {
+    font-size: 0.85rem;
+    padding: 0.3em 0.6em;
+  }
+}
+
+/* 900px - Tablets portrait */
+@media (max-width: 900px) {
+  .plot-section {
+    flex: 1 1 50%;
+    min-height: 40%;
+  }
+  
+  .driver-info-sidebar {
+    flex: 1 1 50%;
+    max-height: 50vh;
+    padding: 0.5em;
+    gap: 0.5em !important;
+  }
+  
+  /* Single column for driver panels on smaller tablets */
+  .driver-info-sidebar .f1tv-driver-panel {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 0.5em !important;
+  }
+  
+  .header-content {
+    flex-wrap: wrap;
+    gap: 0.6em;
+  }
+  
+  .header-title {
+    font-size: 0.85rem;
+    flex-basis: 100%;
   }
 }
 
@@ -1525,137 +1613,348 @@ body {
   .container {
     height: 100vh;
   }
-
+  
   .header {
-    height: 44px;
-    min-height: 44px;
-    max-height: 44px;
-    padding: 0 1em;
-    font-size: 1rem;
+    min-height: 42px;
+    height: auto;
+    padding: 0.5em 0.8em;
   }
-
+  
+  .header-content {
+    gap: 0.5em;
+    flex-wrap: wrap;
+  }
+  
+  .header-title {
+    font-size: 0.8rem;
+    flex-basis: 100%;
+    margin-bottom: 0.3em;
+    text-align: center;
+  }
+  
+  .header-link,
+  .header-btn {
+    font-size: 0.75rem;
+    padding: 0.25em 0.5em;
+    flex: 1;
+    text-align: center;
+  }
+  
   .main-content-flex {
-    height: calc(100vh - 44px);
+    height: calc(100vh - 60px);
     flex-direction: column;
   }
-
+  
   .plot-section {
-    flex: 1.5 1 0;
-    min-height: 45vh;
+    flex: 1 1 45%;
+    min-height: 35%;
   }
-
+  
+  .plot-container {
+    padding: 2px;
+  }
+  
   .driver-info-sidebar {
-    flex: 1 1 auto;
-    min-height: 55vh;
+    flex: 1 1 55%;
     max-height: 55vh;
-    padding: 0.5em;
+    padding: 0.4em;
     overflow-y: auto;
-    width: 95% !important;
+    width: 100% !important;
     flex-direction: column !important;
+    gap: 0.4em !important;
   }
-
+  
   .driver-info-sidebar .f1tv-driver-panel {
     flex: none !important;
     max-width: 100% !important;
-    min-width: 0 !important;
     width: 100% !important;
-    margin-bottom: 0.8em !important;
+    margin-bottom: 0.4em !important;
+    padding: 0.4em 0.6em !important;
   }
-
-  .header-content {
-    gap: 0.8em;
-    flex-wrap: wrap;
+  
+  /* Compact all F1TV elements */
+  .f1tv-header {
+    gap: 0.4em !important;
+    margin-bottom: 0.3em !important;
   }
-
-  .header-title {
-    font-size: 0.85rem;
-    margin-right: 0.5em;
+  
+  .f1tv-team-bar {
+    width: 3px !important;
+    height: 1.8em !important;
   }
-
-  .header-link {
-    font-size: 0.85rem;
-    padding: 0.05em 0.3em;
+  
+  .f1tv-pos {
+    font-size: 0.8em !important;
+    padding: 0.05em 0.3em !important;
   }
-
-  .header-btn {
-    font-size: 0.8rem;
-    padding: 0.15em 0.6em;
+  
+  .f1tv-code {
+    font-size: 1em !important;
+  }
+  
+  .f1tv-lap-time {
+    font-size: 0.9em !important;
+    padding: 0.05em 0.3em !important;
+  }
+  
+  .f1tv-gap {
+    font-size: 0.75em !important;
+    margin-bottom: 0.2em !important;
+  }
+  
+  .f1tv-sectors {
+    gap: 0.2em !important;
+  }
+  
+  .f1tv-sector-pill {
+    font-size: 0.7em !important;
+    padding: 0.15em 0.4em !important;
+    min-width: 55px !important;
+  }
+  
+  .lap-time-delta {
+    font-size: 1em !important;
+    margin-top: 0.3em !important;
+    padding: 0.2em !important;
   }
 }
 
 /* 600px - Large phones landscape */
 @media (max-width: 600px) {
   .header {
-    height: 42px;
-    min-height: 42px;
-    max-height: 42px;
-    padding: 0 0.8em;
+    min-height: 40px;
+    padding: 0.4em 0.6em;
   }
-
-  .main-content-flex {
-    height: calc(100vh - 42px);
-  }
-
-  .plot-section {
-    min-height: 40vh;
-  }
-
-  .driver-info-sidebar {
-    min-height: 60vh;
-    max-height: 60vh;
-    padding: 0.4em;
-  }
-
+  
   .header-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    letter-spacing: 0;
   }
-
+  
   .header-link,
   .header-btn {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    padding: 0.2em 0.4em;
+  }
+  
+  .main-content-flex {
+    height: calc(100vh - 55px);
+  }
+  
+  .plot-section {
+    flex: 1 1 40%;
+    min-height: 30%;
+  }
+  
+  .driver-info-sidebar {
+    flex: 1 1 60%;
+    max-height: 60vh;
+    padding: 0.3em;
+  }
+  
+  /* Hide moment annotations on small screens to save space */
+  .driver-info-sidebar > div:last-child {
+    display: none;
+  }
+  
+  /* Further compress F1TV elements */
+  .f1tv-driver-panel {
+    padding: 0.35em 0.5em !important;
+    margin-bottom: 0.3em !important;
+  }
+  
+  .f1tv-sector-pill {
+    font-size: 0.65em !important;
+    min-width: 50px !important;
   }
 }
 
 /* 480px - Mobile phones */
 @media (max-width: 480px) {
   .header {
-    height: 40px;
-    min-height: 40px;
-    max-height: 40px;
-    padding: 0 0.6em;
+    min-height: 38px;
+    padding: 0.3em 0.5em;
   }
-
-  .main-content-flex {
-    height: calc(100vh - 40px);
-  }
-
-  .plot-section {
-    min-height: 35vh;
-  }
-
-  .driver-info-sidebar {
-    min-height: 65vh;
-    max-height: 65vh;
-    padding: 0.3em;
-  }
-
-  .header-content {
-    gap: 0.5em;
-  }
-
+  
   .header-title {
-    font-size: 0.75rem;
-    margin-right: 0.3em;
-  }
-
-  .header-link {
     font-size: 0.7rem;
-    padding: 0.05em 0.25em;
+    margin-bottom: 0.2em;
   }
-
+  
+  .header-link {
+    font-size: 0.65rem;
+    padding: 0.15em 0.3em;
+    border-radius: 4px;
+  }
+  
   .header-btn {
     font-size: 0.65rem;
-    padding: 0.1em 0.4em;
+    padding: 0.15em 0.3em;
+    border-radius: 4px;
+  }
+  
+  .main-content-flex {
+    height: calc(100vh - 50px);
+  }
+  
+  .plot-section {
+    flex: 1 1 35%;
+    min-height: 25%;
+  }
+  
+  .driver-info-sidebar {
+    flex: 1 1 65%;
+    max-height: 65vh;
+    padding: 0.25em;
+    gap: 0.3em !important;
+  }
+  
+  /* Ultra-compact F1TV panels */
+  .f1tv-driver-panel {
+    padding: 0.3em 0.4em !important;
+    border-radius: 8px !important;
+  }
+  
+  .f1tv-header {
+    gap: 0.3em !important;
+  }
+  
+  .f1tv-team-bar {
+    width: 2px !important;
+    height: 1.5em !important;
+    margin-right: 0.2em !important;
+  }
+  
+  .f1tv-pos {
+    font-size: 0.7em !important;
+    padding: 0 0.25em !important;
+    margin-right: 0.2em !important;
+  }
+  
+  .f1tv-code {
+    font-size: 0.9em !important;
+    margin-right: 0.2em !important;
+  }
+  
+  .f1tv-lap-time {
+    font-size: 0.8em !important;
+    padding: 0 0.25em !important;
+  }
+  
+  .f1tv-gap {
+    font-size: 0.7em !important;
+    margin-left: 0.2em !important;
+  }
+  
+  .f1tv-sectors {
+    margin-left: 0.2em !important;
+  }
+  
+  .f1tv-sector-pill {
+    font-size: 0.6em !important;
+    padding: 0.1em 0.3em !important;
+    min-width: 45px !important;
+  }
+  
+  .lap-time-delta {
+    font-size: 0.9em !important;
+    padding: 0.15em !important;
+    margin-top: 0.2em !important;
+  }
+  
+  /* Hide sector gaps on very small screens */
+  .f1tv-sector-gap {
+    display: none;
+  }
+}
+
+/* 360px - Very small phones */
+@media (max-width: 360px) {
+  .header {
+    min-height: 36px;
+    padding: 0.25em 0.4em;
+  }
+  
+  .header-title {
+    font-size: 0.65rem;
+  }
+  
+  .header-link,
+  .header-btn {
+    font-size: 0.6rem;
+    padding: 0.1em 0.25em;
+  }
+  
+  .main-content-flex {
+    height: calc(100vh - 48px);
+  }
+  
+  .plot-section {
+    flex: 1 1 30%;
+    min-height: 20%;
+  }
+  
+  .driver-info-sidebar {
+    flex: 1 1 70%;
+    max-height: 70vh;
+    padding: 0.2em;
+    gap: 0.25em !important;
+  }
+  
+  /* Even more compact F1TV panels */
+  .f1tv-driver-panel {
+    padding: 0.25em 0.3em !important;
+    margin-bottom: 0.25em !important;
+  }
+  
+  .f1tv-header {
+    gap: 0.25em !important;
+    margin-bottom: 0.2em !important;
+  }
+  
+  .f1tv-team-bar {
+    width: 1.5px !important;
+    height: 1.3em !important;
+    margin-right: 0.15em !important;
+  }
+  
+  .f1tv-pos {
+    font-size: 0.65em !important;
+    padding: 0 0.2em !important;
+    margin-right: 0.15em !important;
+  }
+  
+  .f1tv-code {
+    font-size: 0.8em !important;
+    margin-right: 0.15em !important;
+  }
+  
+  .f1tv-lap-time {
+    font-size: 0.75em !important;
+    padding: 0 0.2em !important;
+  }
+  
+  .f1tv-gap {
+    font-size: 0.65em !important;
+    margin-left: 0.15em !important;
+    margin-bottom: 0.15em !important;
+  }
+  
+  .f1tv-sectors {
+    margin-left: 0.15em !important;
+    gap: 0.15em !important;
+  }
+  
+  .f1tv-sector-pill {
+    font-size: 0.55em !important;
+    padding: 0.05em 0.25em !important;
+    min-width: 40px !important;
+  }
+  
+  .lap-time-delta {
+    font-size: 0.8em !important;
+    padding: 0.1em !important;
+    margin-top: 0.15em !important;
   }
 }
 
@@ -1686,14 +1985,14 @@ body {
   background: linear-gradient(135deg, rgba(24, 24, 24, 0.95) 0%, rgba(45, 27, 27, 0.9) 100%);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
+  border-radius: 12px;
   box-shadow: 
-    0 8px 25px rgba(0, 0, 0, 0.4),
+    0 6px 20px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   color: #fff;
   font-family: "Orbitron", "Rajdhani", Arial, sans-serif;
-  padding: 1.2em 1.1em 1.3em 1.1em;
-  margin: 0.8em auto;
+  padding: 0.6em 0.8em;
+  margin: 0.4em auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1702,88 +2001,90 @@ body {
 .f1tv-header {
   display: flex;
   align-items: center;
-  gap: 0.8em;
-  margin-bottom: 0.6em;
+  gap: 0.5em;
+  margin-bottom: 0.4em;
   width: 100%;
 }
 .f1tv-team-bar {
-  width: 5px;
-  height: 2.8em;
-  border-radius: 4px;
-  margin-right: 0.6em;
+  width: 4px;
+  height: 2.2em;
+  border-radius: 3px;
+  margin-right: 0.4em;
   display: inline-block;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .f1tv-pos {
   background: linear-gradient(45deg, #ffffff, #f0f0f0);
   color: #1a1a1a;
-  font-size: 1.1em;
+  font-size: 0.9em;
   font-weight: 900;
-  border-radius: 8px;
-  padding: 0.15em 0.5em;
-  margin-right: 0.5em;
-  border: 2px solid #ffb300;
-  box-shadow: 0 3px 10px rgba(255, 179, 0, 0.3);
+  border-radius: 6px;
+  padding: 0.1em 0.4em;
+  margin-right: 0.3em;
+  border: 1.5px solid #ffb300;
+  box-shadow: 0 2px 8px rgba(255, 179, 0, 0.3);
   letter-spacing: 0.02em;
   font-family: "Orbitron", sans-serif;
 }
 .f1tv-code {
-  font-size: 1.4em;
+  font-size: 1.1em;
   font-weight: 900;
-  letter-spacing: 1.5px;
-  margin-right: 0.6em;
+  letter-spacing: 1.2px;
+  margin-right: 0.4em;
   font-family: "Orbitron", sans-serif;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .f1tv-lap-time {
-  font-size: 1.3em;
+  font-size: 1em;
   font-weight: 800;
   margin-left: auto;
   background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-  padding: 0.15em 0.6em;
-  border-radius: 8px;
-  letter-spacing: 1px;
+  padding: 0.1em 0.4em;
+  border-radius: 6px;
+  letter-spacing: 0.8px;
   font-family: "Orbitron", sans-serif;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .f1tv-gap {
-  font-size: 1em;
+  font-size: 0.85em;
   color: #ffd700;
   font-weight: 700;
-  margin-bottom: 0.5em;
-  margin-left: 0.6em;
+  margin-bottom: 0.3em;
+  margin-left: 0.4em;
   font-family: "Rajdhani", sans-serif;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .f1tv-sectors {
   display: flex;
   flex-direction: row;
-  gap: 0.4em;
+  gap: 0.3em;
   width: 100%;
-  margin-left: 0.6em;
-  flex-wrap: wrap;
+  margin-left: 0.4em;
+  flex-wrap: nowrap;
   align-items: center;
+  overflow-x: auto;
+  scrollbar-height: thin;
 }
 .f1tv-sector-pill {
-  font-size: 0.9em;
-  padding: 0.3em 0.8em;
+  font-size: 0.75em;
+  padding: 0.2em 0.5em;
   margin: 0;
-  border-radius: 20px;
+  border-radius: 15px;
   font-weight: 800;
   background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.3em;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  min-width: 0;
   letter-spacing: 0.02em;
   font-family: "Orbitron", sans-serif;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
   width: fit-content;
-  min-width: 85px;
+  min-width: 65px;
+  flex-shrink: 0;
 }
 .f1tv-sector-pill.purple {
   background: linear-gradient(135deg, #a020f0, #8b1ad1);
@@ -1804,11 +2105,11 @@ body {
   box-shadow: 0 3px 8px rgba(251, 191, 36, 0.3);
 }
 .f1tv-sector-gap {
-  margin-left: 0.3em;
-  font-size: 0.8em;
+  margin-left: 0.2em;
+  font-size: 0.7em;
   font-weight: 700;
   opacity: 0.8;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   font-family: "Rajdhani", sans-serif;
 }
 

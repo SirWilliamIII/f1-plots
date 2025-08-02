@@ -113,9 +113,9 @@
           
           <!-- Moment Annotations Legend -->
           {% if moment_annotations %}
-          <div style="margin-top: 20px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-            <h4 style="color: white; margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Key Moments</h4>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="margin-top: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+            <h4 style="color: white; margin: 0 0 6px 0; font-size: 12px; font-weight: bold;">Key Moments</h4>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
               {% for moment in moment_annotations %}
               <button 
                 onclick="analyzeMoment({{ moment.id }})"
@@ -123,22 +123,22 @@
                   background: rgba(255, 107, 107, 0.1);
                   border: 1px solid rgba(255, 107, 107, 0.3);
                   color: white;
-                  padding: 8px 12px;
-                  border-radius: 6px;
+                  padding: 6px 8px;
+                  border-radius: 5px;
                   cursor: pointer;
                   text-align: left;
-                  font-size: 12px;
+                  font-size: 11px;
                   transition: all 0.2s;
                   display: flex;
                   align-items: center;
-                  gap: 8px;
+                  gap: 6px;
                 "
                 onmouseover="this.style.background='rgba(255, 107, 107, 0.2)'; this.style.borderColor='rgba(255, 107, 107, 0.5)'"
                 onmouseout="this.style.background='rgba(255, 107, 107, 0.1)'; this.style.borderColor='rgba(255, 107, 107, 0.3)'"
               >
-                <span style="font-weight: bold; color: #ff6b6b;">Moment {{ moment.id }}</span>
-                <span style="color: rgba(255,255,255,0.7); font-size: 11px;">({{ moment.time }})</span>
-                <span style="flex: 1;">{{ moment.description }}</span>
+                <span style="font-weight: bold; color: #ff6b6b; font-size: 10px;">M{{ moment.id }}</span>
+                <span style="color: rgba(255,255,255,0.6); font-size: 10px;">({{ moment.time }})</span>
+                <span style="flex: 1; font-size: 10px;">{{ moment.description }}</span>
               </button>
               {% endfor %}
             </div>
@@ -206,23 +206,66 @@
           
           /* Chat container responsive */
           @media (max-width: 768px) {
+            .f1-ai-main-container {
+              bottom: 60px !important;
+              transform: translateX(-50%) scale(0.9) !important;
+            }
+            
             #chatContainer {
               width: 95vw !important;
-              height: 85vh !important;
+              height: 80vh !important;
               bottom: 10px !important;
               right: 2.5vw !important;
+              left: 2.5vw !important;
               transform: none !important;
               max-width: none !important;
             }
           }
           
-          @media (max-width: 480px) {
+          @media (max-width: 600px) {
+            .f1-ai-main-container {
+              bottom: 55px !important;
+              transform: translateX(-50%) scale(0.85) !important;
+            }
+            
             #chatContainer {
               width: 98vw !important;
-              height: 90vh !important;
-              bottom: 5px !important;
+              height: 75vh !important;
+              bottom: 8px !important;
               right: 1vw !important;
-              border-radius: 15px !important;
+              left: 1vw !important;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .f1-ai-main-container {
+              bottom: 50px !important;
+              transform: translateX(-50%) scale(0.8) !important;
+            }
+            
+            #chatContainer {
+              width: 99vw !important;
+              height: 70vh !important;
+              bottom: 5px !important;
+              right: 0.5vw !important;
+              left: 0.5vw !important;
+              border-radius: 12px !important;
+            }
+          }
+          
+          @media (max-width: 360px) {
+            .f1-ai-main-container {
+              bottom: 45px !important;
+              transform: translateX(-50%) scale(0.75) !important;
+            }
+            
+            #chatContainer {
+              width: 100vw !important;
+              height: 65vh !important;
+              bottom: 0 !important;
+              right: 0 !important;
+              left: 0 !important;
+              border-radius: 8px !important;
             }
           }
         </style>
