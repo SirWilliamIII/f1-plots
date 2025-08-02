@@ -1252,7 +1252,7 @@ body {
   box-shadow: var(--shadow);
   overflow: hidden;
   margin: 0;
-  padding: 8px;
+  padding: 4px; /* Reduced base padding from 8px to 4px */
   position: relative;
   box-sizing: border-box;
 }
@@ -1284,6 +1284,68 @@ body {
     max-height: 95%;
     height: auto;
     width: auto;
+  }
+}
+
+/* Enhanced plot sizing for ALL screens - reduce excessive margins */
+.plot-section {
+  padding: 0; /* Remove any padding from plot section */
+}
+
+.plot-container {
+  margin: 0; /* Ensure no margins */
+}
+
+.plot-container img {
+  max-width: 98%; /* Slightly reduce max-width to minimize margins */
+  max-height: 98%;
+  object-fit: contain;
+}
+
+/* Enhanced plot sizing for larger screens (1140px+) */
+@media (min-width: 1140px) {
+  .plot-container {
+    padding: 2px; /* Reduced from base 4px */
+    border-radius: 8px; /* Slightly reduced border radius */
+  }
+  
+  .plot-container img {
+    max-width: 99%;
+    max-height: 99%;
+  }
+}
+
+/* Further optimization for large desktops */
+@media (min-width: 1400px) {
+  .plot-section {
+    padding: 0; /* Ensure no padding */
+  }
+  
+  .plot-container {
+    padding: 1px; /* Even less padding */
+    border-radius: 6px; /* Further reduced border radius */
+  }
+  
+  .plot-container img {
+    max-width: 99.5%;
+    max-height: 99.5%;
+  }
+}
+
+/* Maximum optimization for very large screens */
+@media (min-width: 1800px) {
+  .plot-section {
+    padding: 0; /* Ensure no padding */
+  }
+  
+  .plot-container {
+    padding: 0; /* No padding */
+    border-radius: 4px; /* Minimal border radius */
+  }
+  
+  .plot-container img {
+    max-width: 100%;
+    max-height: 100%;
   }
 }
 .plot-loading {
@@ -1436,7 +1498,7 @@ body {
     height: 100%;
     width: 100%;
     margin: 0;
-    padding: 4px;
+    padding: 2px; /* Reduced from 4px for stacked layout */
     overflow: hidden;
     display: flex;
     justify-content: center;
@@ -1445,8 +1507,10 @@ body {
   }
 
   .plot-container img {
-    width: 100%;
-    height: 100%;
+    max-width: 98%; /* Consistent with other layouts */
+    max-height: 98%;
+    width: auto;
+    height: auto;
     object-fit: contain;
     object-position: center;
   }

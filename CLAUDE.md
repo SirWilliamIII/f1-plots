@@ -148,6 +148,46 @@ PORT=8080                           # Application port
 2. Add new data fields to context dictionary
 3. Update prompt formatting in `create_contextual_prompt()`
 
+## Development vs Production Workflow
+
+### Development Environment (Port 5050)
+```bash
+# Start development server
+./dev-start.sh
+
+# Access development app
+open http://localhost:5050
+```
+
+**Features:**
+- Debug mode enabled
+- Preloading disabled (faster startup)
+- Single worker thread
+- Safe for testing changes
+
+### Production Environment (Port 5052)
+```bash
+# Restart production server (deploys changes to live site)
+./prod-restart.sh
+
+# Check production logs
+tail -f prod.log
+```
+
+**Features:**
+- Connected to Cloudflare tunnel (f1.linux-box.cc)
+- Preloading enabled (better performance)
+- Background process with logging
+- Production-optimized settings
+
+### Typical Development Workflow
+1. **Make changes** to code files
+2. **Test locally** on http://localhost:5050 using `./dev-start.sh`
+3. **When satisfied**, deploy to production using `./prod-restart.sh`
+4. **Verify live site** at https://f1.linux-box.cc
+
+**Important:** The development and production environments run independently. Changes to development won't affect the live site until you explicitly restart production.
+
 ## FastF1 Cache Management
 
 The application uses extensive caching for F1 data:

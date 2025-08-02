@@ -853,7 +853,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     fig, axes = plt.subplots(
         nrows=len(telemetry_metrics),
         ncols=1,
-        figsize=(22, 20),  # Taller for additional gear plot
+        figsize=(28, 20),  # Wider plot for better horizontal space utilization
         sharex=True,
         gridspec_kw={'hspace': 0.25, 'top': 0.98, 'bottom': 0.07, 'left': 0.07, 'right': 0.98}
     )
@@ -1526,7 +1526,7 @@ def monitor_request_memory(f):
 
 
 if __name__ == "__main__":
-    port = 5052
+    port = int(os.getenv("PORT", 5052))
     logging.info(f"🚀 Starting Flask app on port: {port}")
     logging.info(f"🌐 Access the app at: http://localhost:{port}")
     app.run(debug=True, host='0.0.0.0', port=port)
