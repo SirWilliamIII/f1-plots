@@ -2151,22 +2151,22 @@ body {
   flex-shrink: 0;
 }
 .f1tv-sector-pill.purple {
-  background: linear-gradient(135deg, #a020f0, #8b1ad1);
-  color: #fff;
-  border-color: rgba(160, 32, 240, 0.3);
-  box-shadow: 0 3px 8px rgba(160, 32, 240, 0.3);
+  background: linear-gradient(135deg, #a020f0, #8b1ad1) !important;
+  color: #fff !important;
+  border-color: rgba(160, 32, 240, 0.3) !important;
+  box-shadow: 0 3px 8px rgba(160, 32, 240, 0.3) !important;
 }
 .f1tv-sector-pill.green {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #fff;
-  border-color: rgba(34, 197, 94, 0.3);
-  box-shadow: 0 3px 8px rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  color: #fff !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+  box-shadow: 0 3px 8px rgba(34, 197, 94, 0.3) !important;
 }
 .f1tv-sector-pill.yellow {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #1a1a1a;
-  border-color: rgba(251, 191, 36, 0.3);
-  box-shadow: 0 3px 8px rgba(251, 191, 36, 0.3);
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  color: #1a1a1a !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+  box-shadow: 0 3px 8px rgba(251, 191, 36, 0.3) !important;
 }
 .f1tv-sector-gap {
   margin-left: 0.2em;

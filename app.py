@@ -760,7 +760,8 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
     # Fix: Define session_best_sector_times for sector gap calculations
     session_best_sector_times = [
-        session.laps[f"Sector{i}Time"].min() for i in range(1, 4)
+        session.laps[f"Sector{i}Time"].min().total_seconds() if not pd.isnull(session.laps[f"Sector{i}Time"].min()) else None
+        for i in range(1, 4)
     ]
 
     # Create common distance array for comparison
@@ -1199,19 +1200,19 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         s2_time = s2.total_seconds() if not pd.isnull(s2) else None
         session_best = session_best_sector_times[i]
         # Driver 1 pill color
-        if s1_time is not None and s1_time == session_best:
-            bg_color_1 = "#a020f0"  # Purple
-        elif s1_time is not None and s1_time == drv1_fastest[f"Sector{sector_num}Time"].total_seconds():
-            bg_color_1 = "#22c55e"  # Green
+        if s1_time is not None and session_best is not None and abs(s1_time - session_best) < 0.001:
+            bg_color_1 = "#a020f0"  # Purple - fastest overall
+        elif s1_time is not None and abs(s1_time - drv1_fastest[f"Sector{sector_num}Time"].total_seconds()) < 0.001:
+            bg_color_1 = "#22c55e"  # Green - personal best
         else:
-            bg_color_1 = "#fbbf24"  # Yellow
+            bg_color_1 = "#fbbf24"  # Yellow - slower than personal best
         # Driver 2 pill color
-        if s2_time is not None and s2_time == session_best:
-            bg_color_2 = "#a020f0"  # Purple
-        elif s2_time is not None and s2_time == drv2_fastest[f"Sector{sector_num}Time"].total_seconds():
-            bg_color_2 = "#22c55e"  # Green
+        if s2_time is not None and session_best is not None and abs(s2_time - session_best) < 0.001:
+            bg_color_2 = "#a020f0"  # Purple - fastest overall
+        elif s2_time is not None and abs(s2_time - drv2_fastest[f"Sector{sector_num}Time"].total_seconds()) < 0.001:
+            bg_color_2 = "#22c55e"  # Green - personal best
         else:
-            bg_color_2 = "#fbbf24"  # Yellow
+            bg_color_2 = "#fbbf24"  # Yellow - slower than personal best
         # Text color: use team color for purple/green, dark for yellow
         color_1 = drv1_color if bg_color_1 in ["#a020f0", "#22c55e"] else "#222"
         color_2 = drv2_color if bg_color_2 in ["#a020f0", "#22c55e"] else "#222"
@@ -1261,7 +1262,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     drv2_lap_time_str = f"{drv2_lap_time:.3f}s"
 
     sector_gaps = [
-        drv1_sector_times[i] - session_best_sector_times[i]
+        drv1_sector_times[i].total_seconds() - session_best_sector_times[i] if session_best_sector_times[i] is not None else None
         for i in range(3)
     ]
 
