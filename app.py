@@ -176,7 +176,7 @@ def ollama_generate():
     try:
         request_data = request.json.copy()
         user_prompt = request_data.get("prompt", "")
-        request_data["model"] = "f1expert:latest"
+        request_data["model"] = "f1-analyst:latest"
 
         # Performance optimizations for speed
         request_data["options"] = {
@@ -297,7 +297,7 @@ Explain what technique advantage occurred here and why it made a difference. Be 
 
         # Forward to Ollama with optimized settings
         request_data = {
-            "model": "llama3.2:latest",
+            "model": "f1-analyst:latest",
             "prompt": moment_prompt,
             "stream": data.get("stream", True),
             "options": {
