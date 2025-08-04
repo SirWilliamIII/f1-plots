@@ -6,7 +6,7 @@ A web application for visualizing and comparing Formula 1 telemetry data with AI
 
 ## Features
 
-- **Telemetry Visualization**: Generate 4-panel comparison plots (Throttle, Brake, RPM, Speed)
+- **Telemetry Visualization**: Generate 5-panel comparison plots (Throttle, Brake, RPM, Speed, Gear)
 - **AI Analysis**: Integrated Ollama AI for intelligent telemetry insights
 - **Session Caching**: Background preloading of popular F1 sessions for fast performance
 - **Comprehensive Data**: Access to historical F1 data from 2020-2025

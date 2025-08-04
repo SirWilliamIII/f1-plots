@@ -25,16 +25,40 @@ This is a **Flask-based F1 telemetry visualization application** that generates 
 
 ## Development Commands
 
+### Prerequisites
+```bash
+# Install uv (Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Verify uv installation
+uv --version
+```
+
 ### Local Development
 ```bash
 # Install dependencies
 uv pip install -r requirements.txt
 
-# Run development server
-python app.py
+# Run development server (port 5051)
+./dev-start.sh
+# OR manually:
+export FLASK_ENV=development && export PORT=5051 && uv run python app.py
 
 # Run with production server
-gunicorn app:app -c gunicorn.conf.py
+uv run gunicorn app:app -c gunicorn.conf.py
+```
+
+### Ollama Model Management
+```bash
+# Create the specialized F1 models (required for AI analysis)
+ollama create f1expert -f f1expert.modelfile
+ollama create f1-analyst -f f1-analyst.modelfile
+
+# Verify models are available
+ollama list | grep f1
+
+# Pull base model (if needed)
+ollama pull qwen2.5-coder:7b
 ```
 
 ### Docker Development
@@ -81,9 +105,11 @@ curl http://localhost:8080/metrics
 
 ### AI Integration (`app.py:126-252`)
 - Proxies requests to Ollama with injected telemetry context
-- Optimized for speed with reduced context window and temperature
-- Includes comprehensive telemetry data in prompts
+- Uses custom Qwen2.5-coder:7b models for analysis
+- Two specialized models: `f1expert.modelfile` and `f1-analyst.modelfile`
+- Includes comprehensive telemetry data in prompts with driver mappings
 - Supports both streaming and non-streaming responses
+- Temperature optimized for speed (0.2-0.3) with focused context window
 
 ### Moment Classification (`utils.py:1-168`)
 - Analyzes telemetry data to identify racing techniques
@@ -102,8 +128,10 @@ PORT=8080                           # Application port
 
 ### Configuration Files
 - **`config.py`**: Tunable parameters for session management, Flask, and Gunicorn
-- **`requirements.txt`**: Python dependencies
-- **`pyproject.toml`**: Project metadata and dependencies
+- **`requirements.txt`**: Python dependencies (use with `uv pip install`)
+- **`requirements-minimal.txt`**: Minimal dependencies for Docker builds
+- **`pyproject.toml`**: Project metadata and uv configuration
+- **`uv.lock`**: Locked dependency versions for reproducible builds
 
 ## Data Flow
 
@@ -150,13 +178,13 @@ PORT=8080                           # Application port
 
 ## Development vs Production Workflow
 
-### Development Environment (Port 5050)
+### Development Environment (Port 5051)
 ```bash
 # Start development server
 ./dev-start.sh
 
 # Access development app
-open http://localhost:5050
+open http://localhost:5051
 ```
 
 **Features:**
