@@ -115,6 +115,8 @@ session_manager = SessionManager(
 
 # Global variables (keep for backward compatibility)
 last_plot_buf = None
+# Simple in-memory context storage
+session_contexts = {}
 def get_or_create_session_id(request):
     """Get session ID from request or create new one"""
     # Check if session ID exists in Flask session
@@ -124,12 +126,14 @@ def get_or_create_session_id(request):
 
 def store_telemetry_context(session_id: str, context: dict):
     """Store telemetry context for a session"""
-    # Context management removed
+    global session_contexts
+    session_contexts[session_id] = context
     logging.info(f"📊 Stored context for session {session_id[:8]}...")
 
 def retrieve_telemetry_context(session_id: str) -> dict:
     """Retrieve telemetry context for a session"""
-    return {}
+    global session_contexts
+    return session_contexts.get(session_id, {})
 
 
 # Prometheus metrics
@@ -616,6 +620,20 @@ def index():
                 global last_plot_buf
                 last_plot_buf = plot_path
                 
+                # Store telemetry context with plot annotations for AI analysis  
+                session_id = get_or_create_session_id(request)
+                telemetry_context = {
+                    "plot_annotations": plot_annotations,
+                    "session_info": {
+                        "year": selected_year,
+                        "race": selected_race, 
+                        "session_type": session_type,
+                        "driver1": driver1,
+                        "driver2": driver2
+                    }
+                }
+                store_telemetry_context(session_id, telemetry_context)
+                
                 # Create display data
                 race_title = f"{session_obj.event.year} {session_obj.event['EventName']}"
                 driver_comparison = f"{drv1_abbr} vs {drv2_abbr}"
@@ -625,6 +643,8 @@ def index():
                 moment_annotations = plot_annotations
                 ai_telemetry_data = None
                 ai_annotations = None
+                
+                logging.info(f"🔍 Debug: plot_annotations type: {type(plot_annotations)}, length: {len(plot_annotations) if hasattr(plot_annotations, '__len__') else 'no length'}")
                 
                 logging.info(f"✅ Rendering result for session {session_id[:8]}: "
                             f"{drv1_abbr} vs {drv2_abbr}, {len(moment_annotations)} moments")
