@@ -1056,20 +1056,20 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         except Exception as e:
             logging.error(f"Failed to annotate moment {i}: {e}")
             continue
-        
-        # Save plot to buffer
-        plot_buffer = BytesIO()
-        plt.savefig(
-            plot_buffer,
-            format="png",
-            dpi=150,
-            bbox_inches="tight",
-            facecolor="#111",
-            edgecolor="none",
-        )
-        plot_buffer.seek(0)
-        
-        plt.close(fig)
+    
+    # Save plot to buffer (after all plotting is complete)
+    plot_buffer = BytesIO()
+    plt.savefig(
+        plot_buffer,
+        format="png",
+        dpi=150,
+        bbox_inches="tight",
+        facecolor="#111",
+        edgecolor="none",
+    )
+    plot_buffer.seek(0)
+    
+    plt.close(fig)
     
     # Clean up telemetry data to free memory
     del drv1_tel, drv2_tel
