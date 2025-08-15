@@ -27,7 +27,6 @@ from functools import wraps
 import signal
 from dotenv import load_dotenv
 from utils import classify_moment, extract_telemetry_context
-from track_optimizer import TrackAwareInterpolator
 from flask_compress import Compress
 from flask_cors import CORS
 import psutil
@@ -37,24 +36,12 @@ from datetime import datetime
 import threading
 import time
 from matplotlib.ticker import FuncFormatter
-from datetime import datetime
 
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from session_manager import SessionManager, get_races_cached, initialize_fastf1_cache
 from matplotlib import rcParams
 import matplotlib.patheffects as pe
 import math
-from context_manager import (
-    managed_figure, 
-    global_context_manager, 
-    create_user_session,
-    get_session_context,
-    set_session_context,
-    MemoryOptimizedTelemetryProcessor
-)
-from track_optimizer import TrackAwareInterpolator, create_optimized_distance_array
-from session_manager import SmartSessionManager
-import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -125,7 +112,6 @@ session_manager = SessionManager(
 )
 
 # Initialize track interpolator
-track_interpolator = TrackAwareInterpolator()
 
 # Global variables (keep for backward compatibility)
 last_plot_buf = None
@@ -133,17 +119,17 @@ def get_or_create_session_id(request):
     """Get session ID from request or create new one"""
     # Check if session ID exists in Flask session
     if 'telemetry_session_id' not in flask_session:
-        flask_session['telemetry_session_id'] = create_user_session()
+        flask_session['telemetry_session_id'] = str(uuid.uuid4())
     return flask_session['telemetry_session_id']
 
 def store_telemetry_context(session_id: str, context: dict):
     """Store telemetry context for a session"""
-    set_session_context(session_id, context)
+    # Context management removed
     logging.info(f"📊 Stored context for session {session_id[:8]}...")
 
 def retrieve_telemetry_context(session_id: str) -> dict:
     """Retrieve telemetry context for a session"""
-    return get_session_context(session_id) or {}
+    return {}
 
 
 # Prometheus metrics
@@ -272,7 +258,7 @@ def optimize_cache():
     """🔥 NEW: Trigger cache optimization"""
     try:
         # Force cleanup of expired contexts
-        global_context_manager.force_cleanup()
+        # Context cleanup removed
         
         # Clear old session cache entries
         session_manager.clear_cache(keep_popular=True)
@@ -826,9 +812,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     
     # 🔥 NEW: Track-aware interpolation
     try:
-        common_dist = create_optimized_distance_array(
-            session, drv1_tel, drv2_tel, track_interpolator
-        )
+        common_dist = np.linspace(drv1_tel['Distance'].min(), drv1_tel['Distance'].max(), 1000)
         track_name = session.event['EventName']
         logging.info(f"🎯 {track_name}: Using {len(common_dist)} adaptive interpolation points")
     except Exception as e:
@@ -903,175 +887,175 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     # 🔥 NEW: Use managed matplotlib figure to prevent memory leaks
     telemetry_metrics = ["Throttle", "Brakes", "RPM", "Speed", "nGear"]
     
-    with managed_figure((28, 20), len(telemetry_metrics), 1) as (fig, axes):
-        fig.subplots_adjust(hspace=0.18)
-        
-        label_font = {"fontsize": 16, "color": "white", "fontweight": "bold"}
-        line_effects = [pe.Stroke(linewidth=4, foreground="#222"), pe.Normal()]
-        
-        # Add Turn Markers and Labels (your existing code)
-        try:
-            circuit_info = session.get_circuit_info()
-            if hasattr(circuit_info, 'corners'):
-                corners = circuit_info.corners
-                for _, turn in corners.iterrows():
-                    turn_num = str(turn['Number'])
-                    turn_dist = turn['Distance']
-                    if (drv1_tel['Distance'].min() <= turn_dist <= drv1_tel['Distance'].max()):
-                        turn_time = np.interp(turn_dist, drv1_tel['Distance'], drv1_tel['Time'].dt.total_seconds())
-                        for ax in axes:
-                            ax.axvline(x=turn_time, color='white', alpha=0.18, linewidth=1, zorder=0)
-                        axes[0].text(
-                            turn_time, axes[0].get_ylim()[1] * 1.01, turn_num,
-                            ha='center', va='bottom', fontsize=11, fontweight='bold',
-                            color='white',
-                            bbox=dict(facecolor='#444', edgecolor='none', boxstyle='round,pad=0.2', alpha=0.7),
-                            zorder=10
-                        )
-        except Exception as e:
-            logging.warning(f"Could not add turn markers: {e}")
-        
-        # Add Sector Split Markers (your existing code)
-        try:
-            s2_start = drv1_fastest['Sector1Time'].total_seconds()
-            s3_start = s2_start + drv1_fastest['Sector2Time'].total_seconds()
-            for ax in axes:
-                ax.axvline(x=s2_start, color='#fff', linewidth=2.2, alpha=0.32, linestyle='--', zorder=2)
-                ax.axvline(x=s3_start, color='#fff', linewidth=2.2, alpha=0.32, linestyle='--', zorder=2)
-            
-            ylim = axes[0].get_ylim()
-            label_y = ylim[1] + (ylim[1] - ylim[0]) * 0.04
-            axes[0].text(s2_start, label_y, 'S2', ha='center', va='bottom',
-                        fontsize=11, fontweight='bold', color='white',
-                        bbox=dict(facecolor='#222', edgecolor='none', boxstyle='round,pad=0.18', alpha=0.85),
-                        zorder=10)
-            axes[0].text(s3_start, label_y, 'S3', ha='center', va='bottom',
-                        fontsize=11, fontweight='bold', color='white',
-                        bbox=dict(facecolor='#222', edgecolor='none', boxstyle='round,pad=0.18', alpha=0.85),
-                        zorder=10)
-        except Exception as e:
-            logging.warning(f"Could not add sector split markers: {e}")
-        
-        # Plot telemetry channels (your existing plot functions)
-        plot_telemetry(axes[0], drv1_tel, drv2_tel, "Throttle", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
-        axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white", framealpha=0.85, loc='upper right')
-        
-        plot_telemetry(axes[1], drv1_tel, drv2_tel, "Brake", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
-        axes[1].set_ylabel("Brakes", **label_font)
-        
-        plot_telemetry(axes[2], drv1_tel, drv2_tel, "RPM", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
-        plot_telemetry(axes[3], drv1_tel, drv2_tel, "Speed", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
-        axes[3].set_ylabel("Speed (km/h)", **label_font)
-        
-        # Special handling for gear plot (your existing function)
-        plot_gear_telemetry(axes[4], drv1_tel, drv2_tel, drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
-        axes[4].set_ylabel("Gear", **label_font)
-        axes[4].set_xlabel("Lap Time", **label_font)
-        
-        # Styling for all subplots (your existing styling)
+    fig, axes = plt.subplots(len(telemetry_metrics), 1, figsize=(28, 20))
+    fig.subplots_adjust(hspace=0.18)
+    
+    label_font = {"fontsize": 16, "color": "white", "fontweight": "bold"}
+    line_effects = [pe.Stroke(linewidth=4, foreground="#222"), pe.Normal()]
+    
+    # Add Turn Markers and Labels
+    try:
+        circuit_info = session.get_circuit_info()
+        if hasattr(circuit_info, 'corners'):
+            corners = circuit_info.corners
+            for _, turn in corners.iterrows():
+                turn_num = str(turn['Number'])
+                turn_dist = turn['Distance']
+                if (drv1_tel['Distance'].min() <= turn_dist <= drv1_tel['Distance'].max()):
+                    turn_time = np.interp(turn_dist, drv1_tel['Distance'], drv1_tel['Time'].dt.total_seconds())
+                    for ax in axes:
+                        ax.axvline(x=turn_time, color='white', alpha=0.18, linewidth=1, zorder=0)
+                    axes[0].text(
+                        turn_time, axes[0].get_ylim()[1] * 1.01, turn_num,
+                        ha='center', va='bottom', fontsize=11, fontweight='bold',
+                        color='white',
+                        bbox=dict(facecolor='#444', edgecolor='none', boxstyle='round,pad=0.2', alpha=0.7),
+                        zorder=10
+                    )
+    except Exception as e:
+        logging.warning(f"Could not add turn markers: {e}")
+    
+    # Add Sector Split Markers
+    try:
+        s2_start = drv1_fastest['Sector1Time'].total_seconds()
+        s3_start = s2_start + drv1_fastest['Sector2Time'].total_seconds()
         for ax in axes:
-            ax.set_facecolor("#222")
-            ax.grid(True, alpha=0.2, color="white")
-            ax.tick_params(colors="white", labelsize=12)
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-            ax.spines["left"].set_color("white")
-            ax.spines["bottom"].set_color("white")
+            ax.axvline(x=s2_start, color='#fff', linewidth=2.2, alpha=0.32, linestyle='--', zorder=2)
+            ax.axvline(x=s3_start, color='#fff', linewidth=2.2, alpha=0.32, linestyle='--', zorder=2)
         
-        # Add Key Moment Annotations (your existing annotation logic)
-        annotation_colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b']
-        moment_details = []
-        
-        for i, idx in enumerate(key_idxs):
-            try:
-                time_point = drv1_time[idx]
-                
-                # Interpolate telemetry values (your existing logic)
-                drv1_throttle = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Throttle"])
-                drv2_throttle = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Throttle"])
-                drv1_brake = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Brake"])
-                drv2_brake = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Brake"])
-                drv1_speed = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Speed"])
-                drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
-                drv1_rpm = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["RPM"])
-                drv2_rpm = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["RPM"])
-                drv1_gear = int(np.round(np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["nGear"])))
-                drv2_gear = int(np.round(np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["nGear"])))
-                
-                # Classify the moment (your existing function)
-                moment_description = classify_moment(
-                    t1=drv1_throttle, t2=drv2_throttle,
-                    b1=drv1_brake, b2=drv2_brake,
-                    v1=drv1_speed, v2=drv2_speed,
-                    r1=drv1_rpm, r2=drv2_rpm,
-                    session_type=session.name
-                )
-                
-                # Skip minor moments
-                if any(word in moment_description.lower() for word in ['minor', 'slight difference', 'small']):
-                    continue
-                
-                # Store moment details (your existing logic)
-                moment_id = len(moment_details) + 1
-                moment_data = {
-                    'id': moment_id,
-                    'time': time_point,
-                    'description': moment_description,
-                    'telemetry': {
-                        drv1_abbr: {
-                            'throttle': drv1_throttle, 'brake': drv1_brake,
-                            'speed': drv1_speed, 'rpm': drv1_rpm, 'gear': drv1_gear
-                        },
-                        drv2_abbr: {
-                            'throttle': drv2_throttle, 'brake': drv2_brake,
-                            'speed': drv2_speed, 'rpm': drv2_rpm, 'gear': drv2_gear
-                        }
-                    },
-                    'distance': common_dist[idx]
-                }
-                moment_details.append(moment_data)
-                
-                # Add annotations (your existing annotation logic)
-                annotation_color = annotation_colors[i % len(annotation_colors)]
-                for ax_idx, ax in enumerate(axes):
-                    ax.axvline(x=time_point, color=annotation_color, alpha=0.3, linewidth=1, linestyle='--', zorder=10)
-                
-                # Determine target plot for annotation (your existing logic)
-                description_lower = moment_description.lower()
-                target_plot_idx = 0  # Default to Throttle
-                
-                if any(word in description_lower for word in ['brake', 'braking', 'stopping', 'trail']):
-                    target_plot_idx = 1
-                elif any(word in description_lower for word in ['gear', 'shift', 'selection']):
-                    target_plot_idx = 4
-                elif any(word in description_lower for word in ['rpm', 'engine', 'rev']):
-                    target_plot_idx = 2
-                elif any(word in description_lower for word in ['speed', 'velocity', 'fast', 'slow']):
-                    target_plot_idx = 3
-                
-                # Add annotation
-                ax = axes[target_plot_idx]
-                y_min, y_max = ax.get_ylim()
-                y_range = y_max - y_min
-                y_position = y_max + (y_range * 0.02)
-                
-                short_label = f"Moment {moment_id}"
-                ax.annotate(
-                    short_label,
-                    xy=(time_point, y_max),
-                    xytext=(time_point, y_position),
-                    ha='center', va='bottom',
-                    color=annotation_color,
-                    fontsize=10, fontweight='bold',
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.9,
-                             edgecolor=annotation_color, linewidth=1.5),
-                    path_effects=line_effects,
-                    zorder=11, clip_on=False
-                )
-                
-            except Exception as e:
-                logging.error(f"Failed to annotate moment {i}: {e}")
+        ylim = axes[0].get_ylim()
+        label_y = ylim[1] + (ylim[1] - ylim[0]) * 0.04
+        axes[0].text(s2_start, label_y, 'S2', ha='center', va='bottom',
+                    fontsize=11, fontweight='bold', color='white',
+                    bbox=dict(facecolor='#222', edgecolor='none', boxstyle='round,pad=0.18', alpha=0.85),
+                    zorder=10)
+        axes[0].text(s3_start, label_y, 'S3', ha='center', va='bottom',
+                    fontsize=11, fontweight='bold', color='white',
+                    bbox=dict(facecolor='#222', edgecolor='none', boxstyle='round,pad=0.18', alpha=0.85),
+                    zorder=10)
+    except Exception as e:
+        logging.warning(f"Could not add sector split markers: {e}")
+    
+    # Plot telemetry channels
+    plot_telemetry(axes[0], drv1_tel, drv2_tel, "Throttle", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
+    axes[0].legend(facecolor="#222", edgecolor="white", fontsize=14, labelcolor="white", framealpha=0.85, loc='upper right')
+    
+    plot_telemetry(axes[1], drv1_tel, drv2_tel, "Brake", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
+    axes[1].set_ylabel("Brakes", **label_font)
+    
+    plot_telemetry(axes[2], drv1_tel, drv2_tel, "RPM", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
+    plot_telemetry(axes[3], drv1_tel, drv2_tel, "Speed", drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
+    axes[3].set_ylabel("Speed (km/h)", **label_font)
+    
+    # Special handling for gear plot
+    plot_gear_telemetry(axes[4], drv1_tel, drv2_tel, drv1_color, drv2_color, drv1_abbr, drv2_abbr, label_font, line_effects)
+    axes[4].set_ylabel("Gear", **label_font)
+    axes[4].set_xlabel("Lap Time", **label_font)
+    
+    # Styling for all subplots
+    for ax in axes:
+        ax.set_facecolor("#222")
+        ax.grid(True, alpha=0.2, color="white")
+        ax.tick_params(colors="white", labelsize=12)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color("white")
+        ax.spines["bottom"].set_color("white")
+    
+    # Add Key Moment Annotations
+    annotation_colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b']
+    moment_details = []
+    
+    for i, idx in enumerate(key_idxs):
+        try:
+            time_point = drv1_time[idx]
+            
+            # Interpolate telemetry values
+            drv1_throttle = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Throttle"])
+            drv2_throttle = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Throttle"])
+            drv1_brake = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Brake"])
+            drv2_brake = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Brake"])
+            drv1_speed = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["Speed"])
+            drv2_speed = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["Speed"])
+            drv1_rpm = np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["RPM"])
+            drv2_rpm = np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["RPM"])
+            drv1_gear = int(np.round(np.interp(common_dist[idx], drv1_tel["Distance"], drv1_tel["nGear"])))
+            drv2_gear = int(np.round(np.interp(common_dist[idx], drv2_tel["Distance"], drv2_tel["nGear"])))
+            
+            # Classify the moment (your existing function)
+            moment_description = classify_moment(
+                t1=drv1_throttle, t2=drv2_throttle,
+                b1=drv1_brake, b2=drv2_brake,
+                v1=drv1_speed, v2=drv2_speed,
+                r1=drv1_rpm, r2=drv2_rpm,
+                session_type=session.name
+            )
+            
+            # Skip minor moments
+            if any(word in moment_description.lower() for word in ['minor', 'slight difference', 'small']):
                 continue
+            
+            # Store moment details (your existing logic)
+            moment_id = len(moment_details) + 1
+            moment_data = {
+                'id': moment_id,
+                'time': time_point,
+                'description': moment_description,
+                'telemetry': {
+                    drv1_abbr: {
+                        'throttle': drv1_throttle, 'brake': drv1_brake,
+                        'speed': drv1_speed, 'rpm': drv1_rpm, 'gear': drv1_gear
+                    },
+                    drv2_abbr: {
+                        'throttle': drv2_throttle, 'brake': drv2_brake,
+                        'speed': drv2_speed, 'rpm': drv2_rpm, 'gear': drv2_gear
+                    }
+                },
+                'distance': common_dist[idx]
+            }
+            moment_details.append(moment_data)
+            
+            # Add annotations (your existing annotation logic)
+            annotation_color = annotation_colors[i % len(annotation_colors)]
+            for ax_idx, ax in enumerate(axes):
+                ax.axvline(x=time_point, color=annotation_color, alpha=0.3, linewidth=1, linestyle='--', zorder=10)
+            
+            # Determine target plot for annotation (your existing logic)
+            description_lower = moment_description.lower()
+            target_plot_idx = 0  # Default to Throttle
+            
+            if any(word in description_lower for word in ['brake', 'braking', 'stopping', 'trail']):
+                target_plot_idx = 1
+            elif any(word in description_lower for word in ['gear', 'shift', 'selection']):
+                target_plot_idx = 4
+            elif any(word in description_lower for word in ['rpm', 'engine', 'rev']):
+                target_plot_idx = 2
+            elif any(word in description_lower for word in ['speed', 'velocity', 'fast', 'slow']):
+                target_plot_idx = 3
+            
+            # Add annotation
+            ax = axes[target_plot_idx]
+            y_min, y_max = ax.get_ylim()
+            y_range = y_max - y_min
+            y_position = y_max + (y_range * 0.02)
+            
+            short_label = f"Moment {moment_id}"
+            ax.annotate(
+                short_label,
+                xy=(time_point, y_max),
+                xytext=(time_point, y_position),
+                ha='center', va='bottom',
+                color=annotation_color,
+                fontsize=10, fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.9,
+                         edgecolor=annotation_color, linewidth=1.5),
+                path_effects=line_effects,
+                zorder=11, clip_on=False
+            )
+            
+        except Exception as e:
+            logging.error(f"Failed to annotate moment {i}: {e}")
+            continue
         
         # Save plot to buffer
         plot_buffer = BytesIO()
@@ -1085,7 +1069,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         )
         plot_buffer.seek(0)
         
-        # The managed_figure context automatically cleans up matplotlib resources
+        plt.close(fig)
     
     # Clean up telemetry data to free memory
     del drv1_tel, drv2_tel
@@ -1093,9 +1077,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     # Record performance statistics
     processing_time = time.time() - start_time
     track_name = session.event['EventName']
-    track_interpolator.record_interpolation_performance(
-        track_name, len(common_dist), processing_time
-    )
+    # Track interpolation performance recording removed
     
     # Prepare sector data (your existing logic)
     drv1_sectors = []
@@ -1240,7 +1222,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     enhanced_context["processing_stats"] = {
         "interpolation_points": len(common_dist),
         "processing_time": processing_time,
-        "track_category": track_interpolator.track_profiles.get(track_name, {}).get('category', 'unknown'),
+        "track_category": "unknown",
         "key_moments_detected": len(key_idxs),
         "optimization_used": "track_aware" if len(common_dist) != 1500 else "fallback"
     }
