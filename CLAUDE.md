@@ -91,6 +91,44 @@ curl http://localhost:8080/metrics
 
 ## Key Implementation Details
 
+## AI Model Architecture & Philosophy
+
+### Core Insight: "Pattern Explainers, Not Calculators"
+The F1 analyst models are designed to **interpret pre-calculated metrics** rather than compute them. This fundamental principle drives the entire architecture:
+
+- **Telemetry Processor** (Python/FastF1): Calculates precise metrics
+- **Pattern Detector** (utils.py): Identifies racing techniques
+- **LLM Narrator** (Ollama models): Explains what the patterns mean
+
+### Modelfile Design Decisions
+
+#### F1-Analyst Model Configuration
+- **Base Model**: qwen2.5-coder:7b
+- **System Prompt**: ~3000 tokens (includes driver mappings, track corners, analysis framework)
+- **Temperature**: 0.4 (balanced creativity/accuracy for narrative generation)
+- **Context Window**: 8192 tokens
+- **Philosophy**: Transform data into racing narratives that reveal the artistry behind the numbers
+
+#### Key Modelfile Components
+1. **Driver Abbreviation Mapping**: Prevents hallucinated driver names
+2. **Track Corner References**: Adds atmospheric detail (e.g., "Casino Square" vs "Turn 5")
+3. **Context Window Analysis**: Always examines -3 to +3 seconds around each moment
+4. **Five-Plot Framework**: Systematic analysis of Throttle, Brakes, RPM, Speed, and Gear
+5. **Narrative Arc Structure**: Setup → Approach → Technique → Outcome → Implication
+
+### Optimal Prompt Engineering
+
+#### Pattern Library for Racing Techniques
+```python
+RACING_PATTERNS = {
+    'late_braking': "Pressure or opportunity?",
+    'early_throttle': "Confidence in rear grip",
+    'rpm_drop': "Traction control intervention",
+    'gear_hold': "Managing deployment",
+    'speed_scrub': "Setup issue or mistake?",
+    'throttle_feather': "On the edge of adhesion"
+}
+
 ### Session Management (`session_manager.py`)
 - Uses `ThreadPoolExecutor` for concurrent session loading
 - Implements LRU cache with configurable size (default: 50 sessions)
@@ -193,7 +231,7 @@ open http://localhost:5051
 - Single worker thread
 - Safe for testing changes
 
-### Production Environment (Port 5052)
+### Production Environment (Port 5151)
 ```bash
 # Restart production server (deploys changes to live site)
 ./prod-restart.sh
@@ -240,3 +278,14 @@ The application uses extensive caching for F1 data:
 - Prometheus metrics for request counts, latencies, and cache stats
 - Structured logging for debugging and performance analysis
 - Health check endpoints for load balancer integration
+
+## Summary of Key Changes
+
+1. **Added AI Architecture Philosophy** section explaining the "pattern explainer" approach
+2. **Documented Modelfile Design Decisions** with specific parameters and rationale
+3. **Included Optimal Prompt Engineering** patterns with concrete examples
+4. **Added Performance vs Accuracy Trade-offs** section with practical thresholds
+5. **Enhanced Development Best Practices** with testing examples and quality metrics
+6. **Outlined Future Enhancements** for pattern recognition and multi-model approaches
+
+This update captures the key insights from our discussion while maintaining the practical, development-focused nature of your Claude.md file.
