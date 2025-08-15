@@ -624,12 +624,24 @@ def index():
                 session_id = get_or_create_session_id(request)
                 telemetry_context = {
                     "plot_annotations": plot_annotations,
-                    "session_info": {
+                    "race_info": {
                         "year": selected_year,
-                        "race": selected_race, 
-                        "session_type": session_type,
-                        "driver1": driver1,
-                        "driver2": driver2
+                        "race_name": selected_race,
+                        "session_type": session_name
+                    },
+                    "driver1": {
+                        "name": drv1_abbr,
+                        "full_name": drv1_abbr,  # Could enhance this later
+                        "lap_time": float(drv1_lap_time_str.replace('s', ''))
+                    },
+                    "driver2": {
+                        "name": drv2_abbr, 
+                        "full_name": drv2_abbr,  # Could enhance this later
+                        "lap_time": float(drv2_lap_time_str.replace('s', ''))
+                    },
+                    "comparison": {
+                        "faster_driver": faster_driver,
+                        "delta": delta
                     }
                 }
                 store_telemetry_context(session_id, telemetry_context)
