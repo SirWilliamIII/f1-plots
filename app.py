@@ -606,11 +606,11 @@ def index():
                 # 🔥 NEW: Use enhanced comparison function
                 comparison_result = compare_fastest_laps(session_obj, driver1, driver2)
                 
-                # Unpack results (same as your original code)
+                # Unpack results (including plot annotations)
                 (plot_path, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str,
                  drv1_sectors, drv2_sectors, faster_driver, delta, drv1_team_color,
                  drv1_position, drv1_lap_gap, drv2_team_color, drv2_position, 
-                 drv2_lap_gap, leader_abbr) = comparison_result
+                 drv2_lap_gap, leader_abbr, plot_annotations) = comparison_result
                 
                 # Store plot buffer for serving
                 global last_plot_buf
@@ -621,20 +621,10 @@ def index():
                 driver_comparison = f"{drv1_abbr} vs {drv2_abbr}"
                 session_name = "Qualifying" if session_type == "Q" else "Race"
                 
-                # Get moment annotations from context
-                moment_annotations = []
+                # Use plot annotations directly from comparison result
+                moment_annotations = plot_annotations
                 ai_telemetry_data = None
                 ai_annotations = None
-                
-                context = retrieve_telemetry_context(session_id)
-                if context:
-                    if "plot_annotations" in context:
-                        moment_annotations = context["plot_annotations"]
-                    # Extract telemetry data for AI
-                    if "telemetry_data" in context:
-                        ai_telemetry_data = context["telemetry_data"]
-                    if "annotations" in context:
-                        ai_annotations = context["annotations"]
                 
                 logging.info(f"✅ Rendering result for session {session_id[:8]}: "
                             f"{drv1_abbr} vs {drv2_abbr}, {len(moment_annotations)} moments")
@@ -695,8 +685,9 @@ def serve_plot():
     global last_plot_buf
     if last_plot_buf:
         last_plot_buf.seek(0)  # <-- Ensure buffer is rewound before sending
-        logging.info("✅ Serving plot image")
-        return send_file(last_plot_buf, mimetype="image/png")
+        buffer_size = len(last_plot_buf.getvalue())
+        logging.info(f"✅ Serving plot image (size: {buffer_size} bytes)")
+        return send_file(last_plot_buf, mimetype="image/png", as_attachment=False)
     logging.warning("❌ No plot buffer available to serve")
     return "No plot available", 404
 
@@ -1243,7 +1234,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
     logging.info(f"✅ Plot generation complete: {processing_time:.2f}s, "
                 f"{len(moment_details)} moments, {len(common_dist)} points")
     
-    # Return all the same values as your original function
+    # Return all the same values as your original function plus plot annotations
     return (
         plot_buffer,
         drv1_abbr,
@@ -1261,6 +1252,7 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
         drv2_position,
         drv2_lap_gap,
         leader_abbr,
+        enhanced_context["plot_annotations"],
     )
 
 
