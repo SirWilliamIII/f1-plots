@@ -620,6 +620,9 @@ def index():
                 global last_plot_buf
                 last_plot_buf = plot_path
                 
+                # Define session_name before using it
+                session_name = "Qualifying" if session_type == "Q" else "Race"
+                
                 # Store telemetry context with plot annotations for AI analysis  
                 session_id = get_or_create_session_id(request)
                 telemetry_context = {
@@ -649,7 +652,6 @@ def index():
                 # Create display data
                 race_title = f"{session_obj.event.year} {session_obj.event['EventName']}"
                 driver_comparison = f"{drv1_abbr} vs {drv2_abbr}"
-                session_name = "Qualifying" if session_type == "Q" else "Race"
                 
                 # Use plot annotations directly from comparison result
                 moment_annotations = plot_annotations

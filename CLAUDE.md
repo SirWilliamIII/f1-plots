@@ -39,10 +39,10 @@ uv --version
 # Install dependencies
 uv pip install -r requirements.txt
 
-# Run development server (port 5051)
+# Run development server (port 5050)
 ./dev-start.sh
 # OR manually:
-export FLASK_ENV=development && export PORT=5051 && uv run python app.py
+export FLASK_ENV=development && export PORT=5050 && uv run python app.py
 
 # Run with production server
 uv run gunicorn app:app -c gunicorn.conf.py
@@ -76,17 +76,21 @@ docker-compose up -d
 
 ### Testing & Debugging
 ```bash
-# Check cache statistics
-curl http://localhost:8080/cache_stats
+# Check cache statistics (adjust port based on environment)
+curl http://localhost:5050/cache_stats  # Development
+curl http://localhost:5151/cache_stats  # Production
 
 # Clear session cache
-curl -X POST http://localhost:8080/clear_cache
+curl -X POST http://localhost:5050/clear_cache  # Development
+curl -X POST http://localhost:5151/clear_cache  # Production
 
 # Health check
-curl http://localhost:8080/health
+curl http://localhost:5050/health  # Development
+curl http://localhost:5151/health  # Production
 
 # Prometheus metrics
-curl http://localhost:8080/metrics
+curl http://localhost:5050/metrics  # Development
+curl http://localhost:5151/metrics  # Production
 ```
 
 ## Key Implementation Details
@@ -216,13 +220,13 @@ PORT=8080                           # Application port
 
 ## Development vs Production Workflow
 
-### Development Environment (Port 5051)
+### Development Environment (Port 5050)
 ```bash
 # Start development server
 ./dev-start.sh
 
 # Access development app
-open http://localhost:5051
+open http://localhost:5050
 ```
 
 **Features:**
@@ -261,6 +265,47 @@ The application uses extensive caching for F1 data:
 - **Cache Format**: FastF1 pickle files (`.ff1pkl`)
 - **Cache Size**: Can grow to several GB with extensive usage
 - **Cleanup**: Use `/clear_cache` endpoint or delete cache directory
+
+## Critical Troubleshooting Guide
+
+### Common Issues After Code Changes
+
+#### 1. Plot Generation Issues (Black Screen)
+**Symptoms**: Plot container shows black screen or empty plot
+**Cause**: Plot buffer creation inside loops or incorrect matplotlib setup
+**Fix**: Ensure `plot_buffer = BytesIO()` and `plt.savefig()` are positioned correctly after all plotting is complete
+
+#### 2. Missing Moment Annotations
+**Symptoms**: Clickable moments list disappears from result page
+**Cause**: Context management broken, missing plot_annotations in template data
+**Fix**: Verify `plot_annotations` is properly returned from `compare_fastest_laps()` and passed to template
+
+#### 3. AI Analysis Failures (500 errors)
+**Symptoms**: "Failed to analyze moment" or 500 errors on moment clicks
+**Cause**: Incomplete telemetry context structure missing required fields
+**Fix**: Ensure telemetry context includes complete structure:
+```python
+telemetry_context = {
+    "plot_annotations": plot_annotations,
+    "race_info": {"year": year, "race_name": race, "session_type": session_name},
+    "driver1": {"name": drv1, "lap_time": float(time1)},
+    "driver2": {"name": drv2, "lap_time": float(time2)},
+    "comparison": {"faster_driver": faster, "delta": delta}
+}
+```
+
+#### 4. Variable Scoping Errors (UnboundLocalError)
+**Symptoms**: Result page broken with variable reference errors
+**Cause**: Variables used before definition in context creation
+**Fix**: Define variables like `session_name` before using them in context structures
+
+### Infrastructure Notes
+
+#### Cloudflare Tunnel Integration
+- Production runs on port 5151 (connected to f1.linux-box.cc via LaunchAgent)
+- Development runs on port 5050 (local testing only)
+- LaunchAgent plist: `/Users/will/Library/LaunchAgents/com.f1app.cloudflared-tunnel.plist`
+- Tunnel config: `/Users/will/.cloudflared/config.yaml`
 
 ## Deployment Notes
 

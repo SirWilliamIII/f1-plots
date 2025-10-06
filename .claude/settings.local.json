@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(podman rm:*)",
+      "Bash(podman run:*)",
+      "Bash(--name flask-app )",
+      "Bash(--network host )",
+      "Bash(-e OLLAMA_BASE_URL=http://localhost:11434 )",
+      "Bash(-e PYTHONUNBUFFERED=1 )",
+      "Bash(-e MATPLOTLIB_BACKEND=Agg )",
+      "Bash(-e PORT=8080 )",
+      "Bash(-v ./fastf1_cache:/app/fastf1_cache:Z )",
+      "Bash(-v ./static/plots:/app/static/plots:Z )",
+      "Bash(-v ./logs:/app/logs:Z )",
+      "Bash(--memory 8g )",
+      "Bash(--cpus 2 )",
+      "Bash(--restart unless-stopped )",
+      "Bash(localhost/f1-flask-app:latest)",
+      "Bash(ssh:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(rm:*)",
+      "Bash(uv run:*)"
+    ],
+    "deny": [],
+    "defaultMode": "acceptEdits"
+  }
+}
