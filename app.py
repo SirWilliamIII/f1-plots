@@ -109,6 +109,7 @@ def cleanup_matplotlib():
 session_manager = SessionManager(
     max_workers=2,  # 2 background threads for preloading
     enable_preloading=False,  # Enable preloading of popular sessions
+    max_cache_size=5,  # Reduced from default 50 to 5 to save memory
 )
 
 # Initialize track interpolator
@@ -117,6 +118,22 @@ session_manager = SessionManager(
 last_plot_buf = None
 # Simple in-memory context storage
 session_contexts = {}
+SESSION_CONTEXT_TTL = 3600  # 1 hour TTL for session contexts
+
+def cleanup_old_contexts():
+    """Remove session contexts older than TTL to prevent memory leaks"""
+    global session_contexts
+    current_time = time.time()
+    expired = [
+        sid for sid, ctx in session_contexts.items()
+        if current_time - ctx.get('created_at', 0) > SESSION_CONTEXT_TTL
+    ]
+    for sid in expired:
+        del session_contexts[sid]
+    if expired:
+        logging.info(f"♻️  Cleaned up {len(expired)} expired session contexts")
+        gc.collect()
+
 def get_or_create_session_id(request):
     """Get session ID from request or create new one"""
     # Check if session ID exists in Flask session
@@ -125,10 +142,14 @@ def get_or_create_session_id(request):
     return flask_session['telemetry_session_id']
 
 def store_telemetry_context(session_id: str, context: dict):
-    """Store telemetry context for a session"""
+    """Store telemetry context for a session with timestamp"""
     global session_contexts
+    context['created_at'] = time.time()
     session_contexts[session_id] = context
-    logging.info(f"📊 Stored context for session {session_id[:8]}...")
+    logging.info(f"📊 Stored context for session {session_id[:8]}... (total: {len(session_contexts)})")
+
+    # Clean up old contexts on every store to prevent accumulation
+    cleanup_old_contexts()
 
 def retrieve_telemetry_context(session_id: str) -> dict:
     """Retrieve telemetry context for a session"""
@@ -208,13 +229,16 @@ def ollama_generate():
         request_data["model"] = "f1-analyst:latest"
 
         # Performance optimizations for speed
+        # num_predict: -1 means no limit, let model finish naturally
+        # -2 means use model default (typically ~2048)
         request_data["options"] = {
-            "num_predict": 150,
+            "num_predict": -1,  # Allow model to complete response naturally
             "temperature": 0.1,
             "num_ctx": 1024,
             "repeat_penalty": 1.1,
             "top_p": 0.7,
-            "num_thread": 4
+            "num_thread": 4,
+            "stop": ["</s>", "\n\n\n\n"]  # Stop tokens to prevent excessive output
         }
 
         # 🔥 NEW: Get session-specific context instead of global
@@ -328,14 +352,15 @@ def analyze_moment():
 Explain what technique advantage occurred here and why it made a difference. Be specific about the driving technique and its impact on lap time."""
 
         # Forward to Ollama with optimized settings
+        # num_predict: -1 allows model to complete response naturally
         request_data = {
             "model": "f1-analyst:latest",
             "prompt": moment_prompt,
             "stream": data.get("stream", True),
             "options": {
                 "temperature": 0.3,
-                "num_predict": 200,
-                "stop": ["</s>", "\n\n\n"]
+                "num_predict": -1,  # Allow model to complete response naturally
+                "stop": ["</s>", "\n\n\n\n", "---"]  # Stop tokens to prevent excessive output
             }
         }
         
@@ -1321,7 +1346,7 @@ class MemoryMonitor:
         self.process = psutil.Process()
         self.start_time = datetime.now()
         self.memory_samples = []
-        self.max_samples = 1000
+        self.max_samples = 100  # Reduced from 1000 to 100 to save memory
         tracemalloc.start()
         
     def get_memory_info(self):
@@ -1352,8 +1377,9 @@ class MemoryMonitor:
             'memory': self.get_memory_info()
         }
         self.memory_samples.append(sample)
+        # Keep only the most recent samples to prevent unbounded growth
         if len(self.memory_samples) > self.max_samples:
-            self.memory_samples.pop(0)
+            self.memory_samples = self.memory_samples[-self.max_samples:]
         return sample
 
 # Initialize memory monitor
@@ -1368,9 +1394,26 @@ def memory_sampling_thread():
         except Exception as e:
             logging.error(f"Memory sampling error: {e}")
 
+# Periodic cleanup thread to prevent memory accumulation
+def periodic_cleanup_thread():
+    """Background thread that runs cleanup every 30 minutes"""
+    while True:
+        try:
+            time.sleep(1800)  # Every 30 minutes
+            cleanup_old_contexts()
+            gc.collect()
+            logging.info("♻️  Periodic cleanup completed")
+        except Exception as e:
+            logging.error(f"Periodic cleanup error: {e}")
+
 # Start memory sampling thread
 sampling_thread = threading.Thread(target=memory_sampling_thread, daemon=True)
 sampling_thread.start()
+
+# Start periodic cleanup thread
+cleanup_thread = threading.Thread(target=periodic_cleanup_thread, daemon=True)
+cleanup_thread.start()
+logging.info("🧹 Periodic cleanup thread started (runs every 30 minutes)")
 
 @app.route('/memory_status')
 def memory_status():

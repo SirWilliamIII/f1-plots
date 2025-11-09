@@ -148,7 +148,7 @@ RACING_PATTERNS = {
 ### AI Integration (`app.py:126-252`)
 - Proxies requests to Ollama with injected telemetry context
 - Uses custom Qwen2.5-coder:7b models for analysis
-- Two specialized models: `f1expert.modelfile` and `f1-analyst.modelfile`
+- Specialized model: `f1expert.modelfile` and `f1-analyst.modelfile`
 - Includes comprehensive telemetry data in prompts with driver mappings
 - Supports both streaming and non-streaming responses
 - Temperature optimized for speed (0.2-0.3) with focused context window

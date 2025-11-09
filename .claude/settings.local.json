@@ -20,7 +20,8 @@
       "Bash(ssh:*)",
       "mcp__sequential-thinking__sequentialthinking",
       "Bash(rm:*)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

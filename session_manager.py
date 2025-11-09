@@ -102,7 +102,11 @@ class SmartSessionManager:
                 # 🔥 NEW: Track successful hits for analytics
                 self._session_analytics['hits'][cache_key] = self._session_analytics['hits'].get(cache_key, 0) + 1
                 self._session_analytics['request_times'].append((cache_key, current_time))
-                
+
+                # Limit request_times to prevent unbounded growth
+                if len(self._session_analytics['request_times']) > 1000:
+                    self._session_analytics['request_times'] = self._session_analytics['request_times'][-1000:]
+
                 # Track preload effectiveness
                 if cache_key in self._session_analytics['preload_effectiveness']:
                     self._session_analytics['preload_effectiveness'][cache_key]['used'] = True
@@ -118,11 +122,15 @@ class SmartSessionManager:
         # Not in cache, load it
         self._cache_misses += 1
         logging.info(f"❌ Cache miss: {year} {race} {session_type}")
-        
+
         # 🔥 NEW: This counts as a "demand" for this session type
         self._session_analytics['hits'][cache_key] = self._session_analytics['hits'].get(cache_key, 0) + 1
         self._session_analytics['request_times'].append((cache_key, current_time))
-        
+
+        # Limit request_times to prevent unbounded growth
+        if len(self._session_analytics['request_times']) > 1000:
+            self._session_analytics['request_times'] = self._session_analytics['request_times'][-1000:]
+
         return self._load_session_internal(year, race, session_type)
     
     def _load_session_internal(self, year: int, race: str, session_type: str, is_preload: bool = False):

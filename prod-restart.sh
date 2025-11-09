@@ -18,6 +18,7 @@ sleep 3
 # Set production environment variables
 export PORT=5151
 export FLASK_ENV=production
+export OLLAMA_BASE_URL=http://localhost:11434
 
 # Start the application in background
 echo "🚀 Starting production app..."
