@@ -4,19 +4,38 @@ Deploy F1 app on your Oracle server (24GB RAM) with Modal GPU.
 
 ## TL;DR
 
+**Option 1: Direct Transfer (No GitHub clone needed)**
+
 ```bash
-# On your Oracle server:
+# On your laptop:
+./deploy-to-oracle.sh
+# Enter server IP when prompted
+# Script will transfer files and run setup automatically
+
+# Then SSH to server and configure Modal:
+ssh user@your-server-ip
+sudo -u www-data bash
+cd /opt/f1-app
+modal setup  # Opens browser
+modal deploy app_modal_ollama_only.py
+exit
+
+# Done! 🎉
+```
+
+**Option 2: Git Clone (if you have SSH keys on server)**
+
+```bash
+# On Oracle server:
 git clone <repo-url> /opt/f1-app
 cd /opt/f1-app
 sudo ./deploy-oracle-hybrid.sh
 
 # Then authenticate Modal:
 sudo -u www-data bash
-modal setup  # Opens browser
+modal setup
 modal deploy app_modal_ollama_only.py
 exit
-
-# Done! 🎉
 ```
 
 Your app is now live with:
@@ -137,15 +156,20 @@ Use the helper script:
 
 ## When You Update Code
 
-**On your laptop:**
+**Quick sync from laptop (no git needed):**
 ```bash
+./update-oracle.sh
+# Syncs files and restarts automatically
+```
+
+**OR via git (if using git on server):**
+```bash
+# On laptop:
 git add .
 git commit -m "Update feature"
 git push
-```
 
-**On Oracle server:**
-```bash
+# On Oracle server:
 cd /opt/f1-app
 sudo git pull
 sudo systemctl restart f1-app
