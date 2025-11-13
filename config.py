@@ -76,10 +76,41 @@ class GunicornConfig:
     worker_tmp_dir: str = "/dev/shm"
 
 
+@dataclass
+class ModalConfig:
+    """Modal deployment configuration"""
+
+    # Deployment mode
+    enabled: bool = os.getenv("MODAL_DEPLOYMENT", "false").lower() == "true"
+
+    # GPU configuration
+    gpu_type: str = "T4"  # Options: T4, A10, L4, A100
+    gpu_timeout: int = 120  # seconds
+    gpu_idle_timeout: int = 300  # Keep warm for 5 minutes
+
+    # Volume configuration
+    volume_name: str = "f1-data"
+    cache_path: str = "/cache/fastf1_cache"  # Path within Modal volume
+
+    # Ollama configuration
+    ollama_model: str = "f1-analyst:latest"
+    ollama_temperature: float = 0.1
+
+    # Flask app configuration
+    flask_memory_mb: int = 8192  # 8GB RAM
+    flask_timeout: int = 300  # 5 minutes
+    flask_idle_timeout: int = 600  # Keep warm for 10 minutes
+    keep_warm_instances: int = 0  # 0 = scale to zero, 1+ = keep N instances warm
+
+    # Cache warming schedule (cron format)
+    cache_warming_schedule: str = "0 0 * * *"  # Daily at midnight
+
+
 # Create default configurations
 SESSION_CONFIG = SessionManagerConfig()
 FLASK_CONFIG = FlaskConfig()
 GUNICORN_CONFIG = GunicornConfig()
+MODAL_CONFIG = ModalConfig()
 
 # Environment-specific overrides
 if os.getenv("FLASK_ENV") == "development":
@@ -91,3 +122,12 @@ elif os.getenv("FLASK_ENV") == "production":
     SESSION_CONFIG.max_workers = 2
     SESSION_CONFIG.enable_preloading = True
     FLASK_CONFIG.debug = False
+
+# Modal deployment overrides
+if MODAL_CONFIG.enabled:
+    # Use Modal volume paths
+    SESSION_CONFIG.cache_directory = MODAL_CONFIG.cache_path
+    # Disable local preloading (use Modal's cache warming instead)
+    SESSION_CONFIG.enable_preloading = False
+    # Reduce workers (Modal handles concurrency)
+    SESSION_CONFIG.max_workers = 1

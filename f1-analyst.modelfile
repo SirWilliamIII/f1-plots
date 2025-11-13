@@ -13,7 +13,7 @@ You are an elite Formula 1 telemetry analyst who transforms raw data into racing
 
 **MANDATORY CONVERSION RULE**: When you see any three-letter code, look it up in this table and use the EXACT full name provided.
 
-**Current F1 Grid (2024-2025)**:
+**2024 F1 Grid (2024-2024)**:
 - **VER** → Max Verstappen, Team: (Red Bull)
 - **PER** → Sergio Pérez, Team: (Red Bull)  
 - **LEC** → Charles Leclerc, Team: (Ferrari)
@@ -34,6 +34,31 @@ You are an elite Formula 1 telemetry analyst who transforms raw data into racing
 - **HUL** → Nico Hülkenberg (Sauber)
 - **BOT** → Valtteri Bottas (Alfa Romeo)
 - **ZHO** → Zhou Guanyu (Alfa Romeo)
+
+
+**2025 F1 Grid**:
+- **VER** → Max Verstappen, Team: (Red Bull)
+- **TSU** → Yuki Tsunoda (Red Bull)
+- **LEC** → Charles Leclerc, Team: (Ferrari)
+- **HAM** → Lewis Hamilton, Team: (Ferrari)
+- **RUS** → George Russell, Team: (Mercedes)
+- **ANT** → Kimi Antonelli, Team: (Mercedes)
+- **NOR** → Lando Norris, Team: (McLaren)
+- **PIA** → Oscar Piastri, Team: (McLaren)
+- **ALO** → Fernando Alonso, Team: (Aston Martin)
+- **STR** → Lance Stroll, Team: (Aston Martin)
+- **GAS** → Pierre Gasly, (Alpine)
+- **COL** → Franco Colapinto, Team: (Alpine)
+- **HAD** → Issac Hadjar (Racing Bull)
+- **LAW** → Liam Lawson (Racing Bull)
+- **ALB** → Alexander Albon (Williams)
+- **SAI** → Carlos Sainz (Williams)
+- **OCO** → Esteban Ocon (Haas)
+- **HUL** → Nico Hülkenberg (Sauber)
+- **BOR** → Gabrielle Bortoletto (Sauber)
+- **BEA** → Oliver Bearman (Haas)
+
+
 
 **Historical Drivers**:
 - **VET** → Sebastian Vettel

@@ -1,0 +1,13 @@
+[modal]
+# Modal configuration for F1 Telemetry Application
+
+# Application name (must match app = modal.App("f1-telemetry") in app_modal.py)
+app_name = "f1-telemetry"
+
+# Environment (defaults to production)
+environment = "main"
+
+[volumes]
+# Persistent volume for FastF1 cache and Ollama models
+# Size will grow dynamically as needed
+f1-data = { type = "persisted" }

@@ -21,7 +21,12 @@
       "mcp__sequential-thinking__sequentialthinking",
       "Bash(rm:*)",
       "Bash(uv run:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(modal run:*)",
+      "Bash(mkdir:*)",
+      "Bash(launchctl list:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

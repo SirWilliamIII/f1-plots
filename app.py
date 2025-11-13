@@ -66,7 +66,7 @@ app = Flask(__name__)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 print(f"DEBUG: OLLAMA_BASE_URL set to: {OLLAMA_BASE_URL}")
-app.secret_key = 'f1-telemetry-secret-key-change-in-production'  
+app.secret_key = 'f1-telemetry-secret-key-change-in-production'
 
 os.environ["MPLBACKEND"] = "Agg"
 os.environ["MPLCONFIGDIR"] = "/tmp"
@@ -173,14 +173,14 @@ PLOT_GENERATION_TIME = Histogram(
 def after_request_cleanup(response):
     """Clean up memory after each request"""
     from config import FLASK_CONFIG
-    
+
     if FLASK_CONFIG.enable_gc_after_request:
         # Always do light cleanup
         gc.collect()
-        
+
         # Check if we need aggressive cleanup
         check_memory_usage()
-    
+
     return response
 
 
@@ -318,10 +318,10 @@ def analyze_moment():
         
         data = request.json
         moment_id = data.get("moment_id")
-        
+
         if not moment_id:
             return jsonify({"error": "No moment_id provided"}), 400
-        
+
         # Find the specific moment
         moment = None
         for m in current_telemetry_context.get("plot_annotations", []):
@@ -368,9 +368,13 @@ Explain what technique advantage occurred here and why it made a difference. Be 
             f"{OLLAMA_BASE_URL}/api/generate",
             json=request_data,
             stream=request_data.get("stream", False),
-            timeout=60,
+            timeout=120,  # Increased timeout for moment analysis
         )
-        
+
+        if not resp.ok:
+            logging.error(f"Ollama API error: {resp.status_code} - {resp.text}")
+            return jsonify({"error": f"AI service error: {resp.status_code}"}), 502
+
         if request_data.get("stream", False):
             return Response(
                 stream_with_context(resp.iter_content(chunk_size=1024)),
@@ -378,11 +382,23 @@ Explain what technique advantage occurred here and why it made a difference. Be 
                 status=resp.status_code,
             )
         else:
-            return Response(
-                resp.content,
-                status=resp.status_code,
-                content_type=resp.headers.get("content-type"),
-            )
+            # Parse Ollama response and return just the response text
+            try:
+                ollama_response = resp.json()
+                response_text = ollama_response.get("response", "")
+
+                if not response_text:
+                    logging.error(f"Empty response from Ollama: {ollama_response}")
+                    return jsonify({"error": "AI returned empty response"}), 500
+
+                return jsonify({
+                    "response": response_text,
+                    "model": ollama_response.get("model", ""),
+                    "done": ollama_response.get("done", True)
+                })
+            except Exception as e:
+                logging.error(f"Failed to parse Ollama response: {e}")
+                return jsonify({"error": "Failed to parse AI response"}), 500
     
     except Exception as e:
         logging.error(f"Moment analysis error: {e}")
@@ -612,20 +628,20 @@ def index():
             # 🔥 NEW: Create or get session ID for this user
             session_id = get_or_create_session_id(request)
             logging.info(f"🔐 Processing request for session {session_id[:8]}...")
-            
-            # Process form data (your existing logic)
-            selected_year = int(request.form.get("year"))
-            selected_race = request.form.get("race") 
+
+            selected_year = int(request.form.get("year")) if request.form.get("year") else None
+            selected_race = request.form.get("race")
             selected_session = request.form.get("session", "Qualifying")
             driver1 = request.form.get("driver1")
             driver2 = request.form.get("driver2")
             session_type = session_map.get(selected_session, selected_session)
-            
+
             # Validate form data
             if not (selected_year and selected_race and driver1 and driver2 and driver1 != driver2):
-                logging.warning(f"❌ Invalid form data for session {session_id[:8]}")
-                return render_template("error.html", error_message="Missing or invalid form data.")
-            
+                error_msg = 'Please select different drivers and valid race parameters'
+                logging.error(f"❌ Invalid form data: {error_msg}")
+                return render_template('index.html', races=races_2024, error=error_msg)
+
             try:
                 logging.info(f"🏎️  Loading {selected_year} {selected_race} {selected_session} for session {session_id[:8]}")
                 

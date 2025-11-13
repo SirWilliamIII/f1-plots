@@ -922,31 +922,80 @@
       }
 
       .message-content {
-        line-height: 1.5;
+        line-height: 1.6;
       }
-      .message-content h3,
+
+      /* Main title - RED and bold */
+      .message-content h1 {
+        color: #ff3333;
+        font-size: 18px;
+        font-weight: 900;
+        margin: 12px 0 10px 0;
+        padding-bottom: 8px;
+        border-bottom: 2px solid rgba(255, 51, 51, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* Section headers - Bright blue */
+      .message-content h3 {
+        color: #3b9fff;
+        font-size: 15px;
+        font-weight: 700;
+        margin: 14px 0 8px 0;
+        padding-left: 8px;
+        border-left: 3px solid #3b9fff;
+      }
+
       .message-content h4 {
         color: #ff6b6b;
         margin: 8px 0 4px 0;
-        font-size: 14px;
-      }
-      .message-content ul,
-      .message-content ol {
-        margin: 6px 0;
-        padding-left: 18px;
-      }
-      .message-content li {
-        margin: 3px 0;
-        font-size: 12px;
-      }
-      .message-content strong {
-        color: #4ecdc4;
+        font-size: 13px;
         font-weight: 600;
       }
+
+      .message-content ul,
+      .message-content ol {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+
+      .message-content li {
+        margin: 5px 0;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      /* Driver names and abbreviations - Bold and colored */
+      .message-content .driver-name {
+        color: #ffdd57;
+        font-weight: 700;
+        text-shadow: 0 0 8px rgba(255, 221, 87, 0.4);
+      }
+
+      /* Times, speeds, and numbers - Highlighted */
+      .message-content .metric {
+        color: #4ade80;
+        font-weight: 600;
+        font-family: 'Consolas', 'Monaco', monospace;
+      }
+
+      /* General strong tags */
+      .message-content strong {
+        color: #4ecdc4;
+        font-weight: 700;
+      }
+
       .message-content em {
         color: #fbbf24;
         font-style: normal;
         font-weight: 500;
+      }
+
+      /* Paragraph spacing */
+      .message-content p {
+        margin: 8px 0;
+        line-height: 1.6;
       }
     </style>
 
@@ -1297,19 +1346,57 @@
         function formatF1Response(response, questionType) {
           let formatted = response;
 
-          // Convert basic Markdown to HTML for a richer display.
+          // Get driver context for highlighting
+          const drv1 = "{{ drv1_abbr }}";
+          const drv2 = "{{ drv2_abbr }}";
 
-          // Headings (e.g., ### -> <h3>)
+          // Convert Markdown to HTML with enhanced styling
+
+          // H1 Headings (e.g., # Title -> <h1>)
+          formatted = formatted.replace(/^#\s+(.*)$/gm, '<h1>$1</h1>');
+
+          // H3 Headings (e.g., ### Section -> <h3>)
           formatted = formatted.replace(/^###\s+(.*)$/gm, '<h3>$1</h3>');
+
+          // H2 Headings (e.g., ## Section -> <h3>) - treat as h3 for consistency
+          formatted = formatted.replace(/^##\s+(.*)$/gm, '<h3>$1</h3>');
 
           // Bold text (e.g., **text** -> <strong>text</strong>)
           formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
           // Unordered lists (e.g, - item -> <li>item</li>)
-          formatted = formatted.replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>');
+          formatted = formatted.replace(/^\s*[-*]\s+(.*)$/gm, '<li>$1</li>');
 
           // Wrap consecutive list items in <ul> tags
-          formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+          formatted = formatted.replace(/(<li>.*?<\/li>\s*)+/gs, '<ul>$&</ul>');
+
+          // Highlight driver names (both full abbreviations and in context)
+          const driverPattern = new RegExp(`\\b(${drv1}|${drv2})\\b`, 'g');
+          formatted = formatted.replace(driverPattern, '<span class="driver-name">$1</span>');
+
+          // Highlight times (e.g., "1:23.456", "23.456s", "1.234 seconds")
+          formatted = formatted.replace(/\b(\d{1,2}:\d{2}\.\d{3})\b/g, '<span class="metric">$1</span>');
+          formatted = formatted.replace(/\b(\d+\.\d{1,3})\s?(s|seconds?|sec)\b/gi, '<span class="metric">$1$2</span>');
+
+          // Highlight speeds (e.g., "315 km/h", "195mph")
+          formatted = formatted.replace(/\b(\d{2,3})\s?(km\/h|mph|kph)\b/gi, '<span class="metric">$1 $2</span>');
+
+          // Highlight RPM values (e.g., "12,500 RPM", "12500rpm")
+          formatted = formatted.replace(/\b(\d{1,2},?\d{3})\s?(RPM|rpm)\b/g, '<span class="metric">$1 $2</span>');
+
+          // Highlight percentages (e.g., "100%", "85% throttle")
+          formatted = formatted.replace(/\b(\d{1,3})%/g, '<span class="metric">$1%</span>');
+
+          // Add paragraph breaks for better readability
+          formatted = formatted.replace(/\n\n+/g, '</p><p>');
+          formatted = '<p>' + formatted + '</p>';
+
+          // Clean up empty paragraphs
+          formatted = formatted.replace(/<p>\s*<\/p>/g, '');
+          formatted = formatted.replace(/<p>\s*(<h[13])/g, '$1');
+          formatted = formatted.replace(/(<\/h[13]>)\s*<\/p>/g, '$1');
+          formatted = formatted.replace(/<p>\s*(<ul)/g, '$1');
+          formatted = formatted.replace(/(<\/ul>)\s*<\/p>/g, '$1');
 
           return formatted;
         }
