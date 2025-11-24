@@ -1,4 +1,4 @@
-  FROM llama3:8b
+  FROM llama3.1:8b
   PARAMETER temperature 0.4
   PARAMETER top_p 0.8
   PARAMETER repeat_penalty 1.2
