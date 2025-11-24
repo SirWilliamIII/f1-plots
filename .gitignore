@@ -210,8 +210,6 @@ fastf1_cache/
 
 .vscode/
 
-# Documentation - local development notes
-DEPLOY_HYBRID.md
-DEPLOY_MODAL.md
-MIGRATION_SUMMARY.md
+# Old backup file
+app_old.py
 
