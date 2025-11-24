@@ -42,7 +42,7 @@ image = (
     image=image,
     gpu="T4",  # NVIDIA T4 GPU for Ollama inference
     timeout=120,  # 2 minute timeout for inference
-    container_idle_timeout=180,  # Keep warm for 3 minutes after last request
+    scaledown_window=600,  # Keep warm for 10 minutes after last request (enough for user browsing)
 )
 def run_ollama_inference(
     prompt: str,
@@ -130,7 +130,7 @@ def run_ollama_inference(
     image=image,
     gpu="T4",
     timeout=120,
-    container_idle_timeout=180,  # Keep warm for 3 minutes after last request
+    scaledown_window=600,  # Keep warm for 10 minutes after last request (enough for user browsing)
 )
 def run_ollama_generate(
     model: str,

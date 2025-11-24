@@ -504,10 +504,99 @@ telemetry_context = {
 **Cause**: Variables used before definition in context creation
 **Fix**: Define variables like `session_name` before using them in context structures
 
+#### 5. Ollama Connection Issues (503 Service Unavailable)
+**Symptoms**:
+- Chat connection check (`/ollama_proxy/tags`) works and shows "Connected" ✓
+- Moment analysis (`/api/analyze_moment`) works ✓
+- Regular chat messages (`/ollama_proxy/generate`) fail with 503 error ✗
+- Browser shows "Connection Error: Ensure Ollama is running and try again"
+
+**Diagnosis**:
+```bash
+# Check nginx logs for 503 errors
+ssh -i ~/.ssh/ssh-key-2025-11-10.key ubuntu@84.8.155.16
+sudo tail -100 /var/log/nginx/f1-app-access.log | grep "ollama_proxy/generate"
+
+# Check Flask logs for request handling
+sudo tail -100 /opt/f1-app/logs/app-error.log | grep "🔍.*ollama_proxy"
+
+# Test Flask directly (bypassing nginx)
+curl -X POST http://localhost:5151/ollama_proxy/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"test","stream":false}'
+```
+
+**Root Cause**: Flask app hung/timed out on `/ollama_proxy/generate` requests, causing nginx to return immediate 503 errors
+
+**Fix**: Restart Flask service
+```bash
+sudo systemctl restart f1-app
+```
+
+**Prevention**: Enhanced logging added to track these issues:
+- `app.py:223-291` - Detailed request/response logging for `/ollama_proxy/generate`
+- `templates/result.html:1085-1099` - Browser console logging for connection checks
+- Log locations: `/opt/f1-app/logs/app-error.log` and nginx access logs
+
+**Verification**:
+```bash
+# Should see requests reaching Flask with 200 OK responses
+sudo tail -f /opt/f1-app/logs/app-error.log | grep "🔍\|✅"
+```
+
 ### Infrastructure Notes
 
-#### Cloudflare Tunnel Integration
-- Production runs on port 5151 (connected to f1.linux-box.cc via LaunchAgent)
+#### Oracle Cloud Production Deployment
+**Current Production Setup:**
+- **Platform**: Oracle Cloud Infrastructure (Ubuntu 22.04 ARM64)
+- **IP**: 84.8.155.16
+- **Domains**: f1.probablyfine.lol, f1.linux-box.cc (both via Cloudflare)
+- **SSH Access**: `ssh -i ~/.ssh/ssh-key-2025-11-10.key ubuntu@84.8.155.16`
+
+**Architecture**:
+```
+User → Cloudflare → Nginx (port 80) → Flask (port 5151) → Modal T4 GPU
+                                          ↓
+                                    Ollama Proxy (port 11435)
+```
+
+**Services (systemd)**:
+- `f1-app.service` - Flask application (port 5151)
+- `f1-modal-proxy.service` - Ollama → Modal GPU proxy (port 11435)
+- `nginx.service` - Reverse proxy (port 80)
+
+**Log Locations**:
+- Flask: `/opt/f1-app/logs/app-error.log`, `/opt/f1-app/logs/app.log`
+- Proxy: `/opt/f1-app/logs/proxy.log`, `/opt/f1-app/logs/proxy-error.log`
+- Nginx: `/var/log/nginx/f1-app-access.log`, `/var/log/nginx/f1-app-error.log`
+
+**Key Commands**:
+```bash
+# Restart services
+sudo systemctl restart f1-app
+sudo systemctl restart f1-modal-proxy
+
+# Check status
+sudo systemctl status f1-app
+sudo systemctl status f1-modal-proxy
+
+# View logs
+sudo tail -f /opt/f1-app/logs/app-error.log
+sudo tail -f /var/log/nginx/f1-app-access.log
+```
+
+**DNS Configuration** (Cloudflare + Google fallback):
+- `/etc/systemd/resolved.conf.d/dns_servers.conf`
+- Primary: 1.1.1.1, 1.0.0.1 (Cloudflare)
+- Fallback: 8.8.8.8, 8.8.4.4 (Google)
+
+**Modal Deployment** (GPU inference):
+- Deployed from local Mac (not Oracle VM)
+- Modal apps: `f1-ollama-gpu` (Ollama only), `f1-telemetry` (full stack)
+- Deploy command: `modal deploy app_modal_ollama_only.py`
+
+#### Cloudflare Tunnel Integration (Alternative/Legacy)
+- Production can run on port 5151 via Cloudflare tunnel
 - Development runs on port 5050 (local testing only)
 - LaunchAgent plist: `/Users/will/Library/LaunchAgents/com.f1app.cloudflared-tunnel.plist`
 - Tunnel config: `/Users/will/.cloudflared/config.yaml`
@@ -591,8 +680,20 @@ telemetry_context = {
    - Proper OLLAMA_BASE_URL configuration
    - Clean process management
 
-6. **Added Modal deployment support** - Serverless GPU platform integration
-7. **Implemented input validation** - Security hardening via `validators.py`
-8. **Created Ollama client abstraction** - Unified interface for local/Modal deployments
-9. **Added deployment automation** - Shell scripts for dev/prod/Modal workflows
-10. **Enhanced configuration management** - `ModalConfig` for serverless deployments
+6. **Oracle Cloud Production Deployment (November 2025)** - Cloud hosting with hybrid GPU
+   - Deployed to Oracle Cloud Infrastructure (Ubuntu 22.04 ARM64)
+   - Nginx reverse proxy with Cloudflare DNS
+   - Systemd services for Flask app and Modal proxy
+   - Comprehensive logging infrastructure at `/opt/f1-app/logs/`
+
+7. **Enhanced Logging & Debugging (November 2025)** - Troubleshooting infrastructure
+   - Added detailed request/response logging to `/ollama_proxy/generate` (app.py:223-291)
+   - Browser console logging for connection diagnostics (result.html:1085-1099)
+   - Emoji-based log markers for easy grep filtering (🔍, ✅, ❌)
+   - Integration with nginx access logs for full request tracing
+
+8. **Added Modal deployment support** - Serverless GPU platform integration
+9. **Implemented input validation** - Security hardening via `validators.py`
+10. **Created Ollama client abstraction** - Unified interface for local/Modal deployments
+11. **Added deployment automation** - Shell scripts for dev/prod/Modal workflows
+12. **Enhanced configuration management** - `ModalConfig` for serverless deployments

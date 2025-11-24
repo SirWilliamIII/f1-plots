@@ -123,7 +123,9 @@ def warmup():
     Warmup endpoint - triggers a lightweight inference to wake up Modal container.
     Call this when user visits the site to eliminate cold starts.
     """
+    import time
     try:
+        start = time.time()
         logging.info("🔥 Warming up Modal GPU container...")
         modal_fn = get_modal_function()
 
@@ -134,8 +136,9 @@ def warmup():
             temperature=0.1
         )
 
-        logging.info("✓ Modal container warmed up")
-        return jsonify({"status": "warmed", "backend": "modal-gpu"})
+        elapsed = time.time() - start
+        logging.info(f"✓ Modal container warmed in {elapsed:.1f}s (container will stay warm for 10 minutes)")
+        return jsonify({"status": "warmed", "backend": "modal-gpu", "time": f"{elapsed:.1f}s"})
     except Exception as e:
         logging.error(f"✗ Warmup failed: {e}")
         return jsonify({"status": "warmup-failed", "error": str(e)}), 503

@@ -79,15 +79,35 @@ class SmartSessionManager:
         if enable_preloading:
             self._start_smart_preloading()
     
+    def get_drivers_only(self, year: int, race: str, session_type: str):
+        """
+        Get just the driver list with minimal data loading (much faster).
+
+        This loads ONLY the results/laps data (not telemetry), which is
+        ~100x smaller and contains all driver information we need.
+
+        Returns:
+            FastF1 session with drivers loaded (but not telemetry)
+        """
+        try:
+            session = fastf1.get_session(year, race, session_type)
+            # Load with telemetry=False to skip the huge telemetry downloads
+            # This loads results/lap data only (~1-5 MB instead of 100+ MB)
+            session.load(telemetry=False, weather=False, messages=False)
+            return session
+        except Exception as e:
+            logging.error(f"Failed to get drivers for {year} {race} {session_type}: {e}")
+            raise
+
     def get_session(self, year: int, race: str, session_type: str):
         """
         🔥 ENHANCED: Get a session with smart analytics tracking
-        
+
         Args:
             year: Race year
             race: Race name
             session_type: 'Q' for Qualifying, 'R' for Race
-        
+
         Returns:
             FastF1 session object
         """

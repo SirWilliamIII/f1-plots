@@ -224,6 +224,10 @@ def ollama_tags():
 def ollama_generate():
     """🔥 ENHANCED: Proxy endpoint with session-scoped telemetry context injection"""
     try:
+        logging.info("🔍 /ollama_proxy/generate called")
+        logging.info(f"🔍 Request content type: {request.content_type}")
+        logging.info(f"🔍 Request data: {request.get_data(as_text=True)[:200]}")
+
         request_data = request.json.copy()
         user_prompt = request_data.get("prompt", "")
         request_data["model"] = "f1-analyst:latest"
@@ -245,7 +249,7 @@ def ollama_generate():
         session_id = flask_session.get('telemetry_session_id')
         if session_id:
             current_telemetry_context = retrieve_telemetry_context(session_id)
-            
+
             if current_telemetry_context:
                 logging.info(f"🧠 Injecting session context for {session_id[:8]}...")
                 context_prompt = create_contextual_prompt(user_prompt, current_telemetry_context)
@@ -255,6 +259,8 @@ def ollama_generate():
         else:
             logging.warning("❌ No session ID found")
 
+        logging.info(f"🚀 Forwarding to Ollama at {OLLAMA_BASE_URL}/api/generate")
+
         # Forward to Ollama (your existing code)
         resp = requests.post(
             f"{OLLAMA_BASE_URL}/api/generate",
@@ -262,6 +268,8 @@ def ollama_generate():
             stream=request_data.get("stream", False),
             timeout=300,
         )
+
+        logging.info(f"✅ Ollama response status: {resp.status_code}")
 
         if request_data.get("stream", False):
             return Response(
@@ -277,8 +285,10 @@ def ollama_generate():
             )
 
     except Exception as e:
-        logging.error(f"Ollama proxy error: {e}")
-        return jsonify({"error": "Failed to connect to Ollama"}), 503
+        logging.error(f"❌ Ollama proxy error: {e}")
+        logging.error(f"❌ Error type: {type(e).__name__}")
+        logging.error(f"❌ Traceback: ", exc_info=True)
+        return jsonify({"error": "Failed to connect to Ollama", "details": str(e)}), 503
 
 
 @app.route("/optimize_cache", methods=["POST"])
@@ -507,8 +517,9 @@ def get_drivers():
             session_map = {"Qualifying": "Q", "Race": "R"}
             session_type = session_map.get(session_name, session_name)
 
-            # Use session manager directly - FIXED
-            session = session_manager.get_session(year, race, session_type)
+            # ⚡ OPTIMIZATION: Use lightweight method that doesn't load full telemetry
+            # This is 10x faster since we only need driver names, not 100+ MB of telemetry data
+            session = session_manager.get_drivers_only(year, race, session_type)
 
             # Add more debug logging
             logging.info(
@@ -792,25 +803,40 @@ def warmup_gpu():
     Warmup endpoint - triggers GPU container to wake up.
     Called when user visits the site to eliminate cold starts.
     """
-    try:
-        import requests
-        ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+    import threading
 
-        # If using Modal proxy, forward to its warmup endpoint
-        if "11435" in ollama_url:  # Port 11435 = Modal proxy
-            response = requests.post(f"{ollama_url}/warmup", timeout=30)
-            return response.json()
-        else:
-            # Local Ollama - just ping it
-            response = requests.post(
-                f"{ollama_url}/api/generate",
-                json={"model": "qwen2.5-coder:7b", "prompt": "Ready", "stream": False},
-                timeout=30
-            )
-            return {"status": "warmed", "backend": "local-ollama"}
-    except Exception as e:
-        # Warmup is optional - don't break page load if it fails
-        return {"status": "warmup-failed", "error": str(e)}, 200  # Return 200 to avoid console errors
+    def warmup_background():
+        try:
+            import requests
+            import time
+            start = time.time()
+            ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+
+            # If using Modal proxy, forward to its warmup endpoint
+            if "11435" in ollama_url:  # Port 11435 = Modal proxy
+                logging.info("🔥 Warming up Modal GPU (background)...")
+                response = requests.post(f"{ollama_url}/warmup", timeout=60)
+                elapsed = time.time() - start
+                logging.info(f"✓ GPU warmed in {elapsed:.1f}s")
+            else:
+                # Local Ollama - just ping it
+                logging.info("🔥 Warming up local Ollama...")
+                requests.post(
+                    f"{ollama_url}/api/generate",
+                    json={"model": "qwen2.5-coder:7b", "prompt": "Ready", "stream": False},
+                    timeout=30
+                )
+                elapsed = time.time() - start
+                logging.info(f"✓ Local Ollama warmed in {elapsed:.1f}s")
+        except Exception as e:
+            logging.warning(f"⚠ GPU warmup failed: {e}")
+
+    # Start warmup in background thread - don't block page load!
+    thread = threading.Thread(target=warmup_background, daemon=True)
+    thread.start()
+
+    # Return immediately
+    return {"status": "warming", "message": "GPU warmup started in background"}, 200
 
 
 # Initialize performance optimizations

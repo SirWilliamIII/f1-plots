@@ -1082,9 +1082,18 @@
 
         async function checkConnection() {
           try {
+            console.log('🔍 Checking Ollama connection...');
             const response = await fetch('/ollama_proxy/tags');
+            console.log('📡 Response status:', response.status, response.ok);
+
+            if (response.ok) {
+              const data = await response.json();
+              console.log('✅ Ollama connected! Models:', data.models?.map(m => m.name));
+            }
+
             setConnectionStatus(response.ok);
           } catch (error) {
+            console.error('❌ Connection check failed:', error);
             setConnectionStatus(false);
           }
         }

@@ -32,7 +32,7 @@ image = (
     image=image,
     gpu="T4",
     timeout=900,  # 15 minutes (includes time to build custom model)
-    container_idle_timeout=180,  # Keep warm for 3 minutes after last request
+    scaledown_window=600,  # Keep warm for 10 minutes after last request (enough for user browsing)
 )
 def generate(
     model: str,

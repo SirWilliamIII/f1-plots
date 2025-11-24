@@ -9,8 +9,8 @@ static/plots/*
 .idea/*
 __pycache__/
 *.py[cod]*.pyc
-.CLAUDE.md
-.claude/
+
+
 # Distribution / packaging
 .Python
 build/
@@ -214,4 +214,4 @@ fastf1_cache/
 DEPLOY_HYBRID.md
 DEPLOY_MODAL.md
 MIGRATION_SUMMARY.md
-CLAUDE.md
+
