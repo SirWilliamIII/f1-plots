@@ -26,7 +26,8 @@
       "Bash(mkdir:*)",
       "Bash(launchctl list:*)",
       "Bash(lsof:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(modal app list:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

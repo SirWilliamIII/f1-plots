@@ -39,15 +39,20 @@ log_info "Dependencies installed"
 echo ""
 echo "Step 2: Installing uv package manager..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+UV_BIN="$HOME/.local/bin/uv"
 log_info "uv installed"
 
 echo ""
 echo "Step 3: Cloning/updating application..."
 if [ -d "$APP_DIR" ]; then
-    log_warn "App directory exists, pulling latest changes..."
     cd "$APP_DIR"
-    git pull
+    if [ -d ".git" ]; then
+        log_warn "App directory exists, pulling latest changes..."
+        git pull
+    else
+        log_warn "App directory exists (direct transfer), skipping git pull..."
+    fi
 else
     git clone https://github.com/YOUR_USERNAME/f1-race-plots.git "$APP_DIR"
     cd "$APP_DIR"
@@ -56,12 +61,12 @@ log_info "Application code ready"
 
 echo ""
 echo "Step 4: Installing Python dependencies..."
-uv pip install -r requirements.txt
+$UV_BIN pip install --system -r requirements.txt
 log_info "Python dependencies installed"
 
 echo ""
 echo "Step 5: Installing Modal CLI..."
-uv pip install modal
+$UV_BIN pip install --system modal
 log_info "Modal CLI installed"
 
 echo ""
@@ -102,7 +107,7 @@ Type=simple
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment="PATH=$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=$(which uv) run python ollama_modal_proxy.py
+ExecStart=/root/.local/bin/uv run python ollama_modal_proxy.py
 Restart=always
 RestartSec=10
 
@@ -130,7 +135,7 @@ User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=$APP_DIR/.env
 Environment="PATH=$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=$(which uv) run python app.py
+ExecStart=/root/.local/bin/uv run python app.py
 Restart=always
 RestartSec=10
 

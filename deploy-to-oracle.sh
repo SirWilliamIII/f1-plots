@@ -7,7 +7,16 @@ set -e
 # Configuration - UPDATE THESE
 ORACLE_HOST="${ORACLE_HOST:-your-server-ip}"
 ORACLE_USER="${ORACLE_USER:-ubuntu}"
+SSH_KEY="${SSH_KEY:-}"
 REMOTE_DIR="/opt/f1-app"
+
+# Build SSH command with optional key
+SSH_CMD="ssh"
+SCP_CMD="scp"
+if [ -n "$SSH_KEY" ]; then
+    SSH_CMD="ssh -i $SSH_KEY"
+    SCP_CMD="scp -i $SSH_KEY"
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -46,12 +55,12 @@ fi
 
 # Check SSH connection
 log_step "Testing SSH connection..."
-if ! ssh -o ConnectTimeout=5 $ORACLE_USER@$ORACLE_HOST "echo 'Connected successfully'" > /dev/null 2>&1; then
+if ! $SSH_CMD -o ConnectTimeout=5 $ORACLE_USER@$ORACLE_HOST "echo 'Connected successfully'" > /dev/null 2>&1; then
     log_error "Cannot connect to $ORACLE_USER@$ORACLE_HOST"
     echo ""
     echo "Make sure:"
-    echo "  1. Your SSH key is loaded: ssh-add -l"
-    echo "  2. You can connect: ssh $ORACLE_USER@$ORACLE_HOST"
+    echo "  1. Your SSH key is loaded or specified via SSH_KEY"
+    echo "  2. You can connect: $SSH_CMD $ORACLE_USER@$ORACLE_HOST"
     exit 1
 fi
 log_info "SSH connection successful"
@@ -80,12 +89,12 @@ log_info "Package created: $PACKAGE_NAME"
 
 # Transfer package
 log_step "Transferring files to Oracle server..."
-scp "$TEMP_DIR/$PACKAGE_NAME" $ORACLE_USER@$ORACLE_HOST:/tmp/
+$SCP_CMD "$TEMP_DIR/$PACKAGE_NAME" $ORACLE_USER@$ORACLE_HOST:/tmp/
 log_info "Files transferred"
 
 # Extract and setup on server
 log_step "Setting up on Oracle server..."
-ssh $ORACLE_USER@$ORACLE_HOST << 'ENDSSH'
+$SSH_CMD $ORACLE_USER@$ORACLE_HOST << 'ENDSSH'
 set -e
 
 # Create directory
@@ -112,7 +121,7 @@ log_info "Setup complete on server"
 
 # Run deployment script on server
 log_step "Running deployment script..."
-ssh $ORACLE_USER@$ORACLE_HOST << 'ENDSSH'
+$SSH_CMD $ORACLE_USER@$ORACLE_HOST << 'ENDSSH'
 cd /opt/f1-app
 if [ -f deploy-oracle-hybrid.sh ]; then
     sudo chmod +x deploy-oracle-hybrid.sh

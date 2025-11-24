@@ -9,7 +9,8 @@ static/plots/*
 .idea/*
 __pycache__/
 *.py[cod]*.pyc
-
+.CLAUDE.md
+.claude/
 # Distribution / packaging
 .Python
 build/

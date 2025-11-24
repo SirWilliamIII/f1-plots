@@ -41,9 +41,8 @@ image = (
 @app.function(
     image=image,
     gpu="T4",  # NVIDIA T4 GPU for Ollama inference
-    volumes={"/data": data_volume},
     timeout=120,  # 2 minute timeout for inference
-    scaledown_window=300,  # Keep container warm for 5 minutes
+    container_idle_timeout=180,  # Keep warm for 3 minutes after last request
 )
 def run_ollama_inference(
     prompt: str,
@@ -130,8 +129,8 @@ def run_ollama_inference(
 @app.function(
     image=image,
     gpu="T4",
-    volumes={"/data": data_volume},
     timeout=120,
+    container_idle_timeout=180,  # Keep warm for 3 minutes after last request
 )
 def run_ollama_generate(
     model: str,
@@ -252,7 +251,7 @@ def web():
 
 @app.function(
     image=image,
-    volumes={"/data": data_volume},
+    volumes={"/cache": data_volume},  # Fixed: mount at /cache to match Flask app
     schedule=modal.Cron("0 0 * * *"),  # Run daily at midnight
 )
 def warm_cache():
@@ -264,6 +263,10 @@ def warm_cache():
     """
     import fastf1
     from datetime import datetime
+    import os
+
+    # Create cache directory (matches Flask app setup)
+    os.makedirs("/cache/fastf1_cache", exist_ok=True)
 
     # Set cache directory
     fastf1.Cache.enable_cache("/cache/fastf1_cache")

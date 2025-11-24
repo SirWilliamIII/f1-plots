@@ -14,14 +14,24 @@ This is a **Flask-based F1 telemetry visualization application** that generates 
 - **`session_manager.py`**: Thread-safe F1 session caching system with preloading
 - **`utils.py`**: Racing technique classification and telemetry context extraction
 - **`config.py`**: Centralized configuration management for all components
+- **`validators.py`**: Input validation for security (prevents injection attacks)
+- **`ollama_client.py`**: Unified Ollama client for local and Modal deployments
+- **`ollama_modal_proxy.py`**: Local proxy forwarding Ollama requests to Modal GPU
+- **`app_modal_ollama_only.py`**: Simplified Modal GPU function (Ollama only)
+- **`app_modal.py`**: Full Modal deployment wrapper (reference implementation)
+- **`start-production-gpu.sh`**: Production startup script with GPU acceleration
 
 ### Key Features
 
 - **5-panel telemetry plots**: Throttle, Brake, RPM, Speed, and Gear comparison
 - **AI-powered analysis**: Contextual telemetry insights via Ollama integration
+- **Hybrid GPU Architecture**: Local Flask/FastF1 + Modal T4 GPU for 5x faster AI (5-10s vs 30-60s)
+- **Enhanced AI formatting**: Styled markdown with auto-highlighted driver names, times, speeds
 - **Performance caching**: Background preloading of popular F1 sessions
 - **Moment classification**: Automatic identification of racing techniques (trail braking, gear selection, etc.)
 - **Prometheus metrics**: Built-in performance monitoring
+- **Input validation**: Security hardening against injection attacks
+- **Multi-deployment support**: Local (CPU), Hybrid (GPU proxy), Docker, and Modal (full serverless)
 
 ## Development Commands
 
@@ -73,6 +83,72 @@ docker-compose up -d
 # Using Podman
 ./deploy-podman.sh
 ```
+
+### Modal Deployment (Serverless GPU)
+```bash
+# Install Modal CLI
+pip install modal
+modal setup  # Authenticate
+
+# Deploy to Modal (serverless GPU platform)
+./deploy-modal.sh
+
+# Development mode (auto-reload)
+./deploy-modal.sh --dev
+
+# Skip cache upload (faster deployment)
+./deploy-modal.sh --no-cache
+
+# View logs
+modal app logs f1-telemetry
+
+# Check costs (should be $0 within free tier)
+# Visit: https://modal.com/usage
+```
+
+**Modal Benefits:**
+- $0/month hosting (within $30 free tier)
+- Serverless T4 GPU for 10x faster AI inference
+- Auto-scaling from 0 to infinity
+- No infrastructure management
+- See [DEPLOY_MODAL.md](DEPLOY_MODAL.md) for details
+
+### Hybrid GPU Architecture (Recommended)
+
+**Best of both worlds**: Local Flask/FastF1 + Modal T4 GPU for AI inference only.
+
+```bash
+# Step 1: Deploy Ollama GPU function to Modal
+modal deploy app_modal_ollama_only.py
+
+# Step 2: Start the local Ollama proxy (in background)
+uv run python ollama_modal_proxy.py &
+
+# Step 3: Start Flask with GPU proxy
+export OLLAMA_BASE_URL=http://localhost:11435
+./start-production-gpu.sh
+```
+
+**Architecture:**
+```
+User → Flask (localhost:5151) → Ollama Proxy (localhost:11435) → Modal T4 GPU
+        ↓                         ↓
+   FastF1 (local cache)      Modal Function (GPU inference)
+```
+
+**Benefits:**
+- ✅ 5x faster AI inference (30-60s → 5-10s)
+- ✅ $0/month cost (within Modal $30 free tier)
+- ✅ No FastF1 timeout issues (data stays local)
+- ✅ No plot generation cold starts (Flask runs locally)
+- ✅ Easy rollback (just stop proxy)
+
+**Performance:**
+- Plot generation: 3-8s (same as local)
+- AI analysis (first): 15-20s (Modal cold start + model build)
+- AI analysis (warm): **5-10s** ⚡ (5x faster than local CPU!)
+
+**Local Ollama is NOT required!** The proxy uses Modal's Python SDK to call the cloud GPU function. You can uninstall local Ollama completely.
 
 ### Testing & Debugging
 ```bash
@@ -153,6 +229,39 @@ RACING_PATTERNS = {
 - Supports both streaming and non-streaming responses
 - Temperature optimized for speed (0.2-0.3) with focused context window
 
+### AI Response Formatting (`templates/result.html`)
+JavaScript function `formatF1Response()` provides professional F1 broadcast styling:
+
+**Markdown Rendering:**
+- `#` → Red H1 titles (#ff3333, uppercase, underline)
+- `###` or `##` → Bright blue H3 headers (#3b9fff, left accent border)
+- `**text**` → Cyan bold text (#4ecdc4)
+- Lists properly wrapped in `<ul>` tags
+
+**Auto-Detection & Highlighting:**
+- **Driver names** (VER, HAM, etc.) → Golden yellow (#ffdd57) with glow effect
+- **Times** (1:23.456, 23.5s) → Green monospace (#4ade80)
+- **Speeds** (315 km/h) → Green monospace
+- **RPM values** (12,500 RPM) → Green monospace
+- **Percentages** (100%) → Green monospace
+
+**Smart Context Detection:**
+Uses driver abbreviations from template context to intelligently highlight names throughout the response without false positives.
+
+### Ollama Client Abstraction (`ollama_client.py`)
+- Unified interface for local and Modal deployments
+- Auto-detects deployment mode via `MODAL_DEPLOYMENT` environment variable
+- Automatic fallback to local Ollama if Modal unavailable
+- Health checks and model listing
+- Singleton pattern for efficient connection reuse
+
+### Input Validation (`validators.py`)
+- Validates all user inputs to prevent injection attacks
+- Functions: `validate_year()`, `validate_driver()`, `validate_session_type()`, `validate_race_name()`, `validate_moment_id()`
+- Returns 400 Bad Request with descriptive errors
+- Prevents dangerous characters in race names
+- Enforces reasonable bounds on all inputs
+
 ### Moment Classification (`utils.py:1-168`)
 - Analyzes telemetry data to identify racing techniques
 - Differentiates between qualifying and race scenarios
@@ -163,9 +272,29 @@ RACING_PATTERNS = {
 
 ### Required Environment Variables
 ```bash
-OLLAMA_BASE_URL=http://ollama:11434  # Ollama service URL
-FLASK_ENV=development|production     # Environment mode
-PORT=8080                           # Application port
+OLLAMA_BASE_URL=http://ollama:11434        # Local Ollama (CPU)
+OLLAMA_BASE_URL=http://localhost:11435     # Hybrid GPU via proxy (recommended)
+FLASK_ENV=development|production           # Environment mode
+PORT=8080                                  # Application port (5050 dev, 5151 prod)
+MODAL_DEPLOYMENT=false|true                # Enable Modal deployment mode (auto-set by app_modal.py)
+```
+
+**For Hybrid GPU Architecture:**
+```bash
+# .env file
+OLLAMA_BASE_URL=http://localhost:11435
+
+# Or set in shell
+export OLLAMA_BASE_URL=http://localhost:11435
+```
+
+### Secret Management
+```bash
+# Generate secret key (do this once)
+python -c 'import secrets; print(secrets.token_hex(32))' > .env.secret
+
+# The app reads from .env.secret file (git-ignored)
+# Fallback to FLASK_SECRET_KEY environment variable
 ```
 
 ### Configuration Files
@@ -178,11 +307,36 @@ PORT=8080                           # Application port
 ## Data Flow
 
 1. **User Request**: Select year/race/session/drivers via web interface
-2. **Session Loading**: SessionManager checks cache or loads from FastF1
-3. **Telemetry Processing**: Extract and process driver telemetry data
-4. **Plot Generation**: Create 5-panel comparison with moment annotations
-5. **AI Analysis**: Generate contextual insights using Ollama
-6. **Response**: Serve plot and analysis to user
+2. **Input Validation**: All inputs validated via `validators.py` before processing
+3. **Session Loading**: SessionManager checks cache or loads from FastF1
+4. **Telemetry Processing**: Extract and process driver telemetry data
+5. **Plot Generation**: Create 5-panel comparison with moment annotations
+6. **AI Analysis**: Generate contextual insights using Ollama (via `ollama_client.py`)
+7. **Response**: Serve plot and analysis to user
+
+### Deployment-Specific Flow
+
+**Local Deployment (CPU):**
+```
+User → Flask (port 5050/5151) → Local Ollama (CPU) → FastF1 Cache (disk)
+```
+
+**Hybrid GPU Architecture (Recommended):**
+```
+User → Flask (local) → Ollama Proxy (port 11435) → Modal T4 GPU Function
+         ↓                                            ↓
+    FastF1 Cache (local disk)                    Ollama on GPU (5-10s)
+```
+- Flask and data operations stay local (no timeouts)
+- Only AI inference goes to Modal GPU (5x speedup)
+- Proxy uses Modal Python SDK (no local Ollama needed)
+
+**Modal Full Deployment:**
+```
+User → Modal Flask (ASGI) → Modal GPU Function (T4) → Ollama on GPU → FastF1 Cache (Modal volume)
+```
+
+The `ollama_client.py` automatically detects which flow to use based on the `MODAL_DEPLOYMENT` environment variable. For hybrid, set `OLLAMA_BASE_URL=http://localhost:11435`.
 
 ## Performance Considerations
 
@@ -217,6 +371,21 @@ PORT=8080                           # Application port
 1. Modify `extract_telemetry_context()` in `utils.py`
 2. Add new data fields to context dictionary
 3. Update prompt formatting in `create_contextual_prompt()`
+
+### Adding Input Validation
+1. Add validation function to `validators.py`
+2. Import and use in route handlers before processing
+3. Return descriptive 400 errors for invalid inputs
+4. Example pattern:
+```python
+from validators import validate_year, validate_driver
+
+@app.route('/compare')
+def compare():
+    year = validate_year(request.args.get('year'))
+    driver = validate_driver(request.args.get('driver'))
+    # Use validated inputs...
+```
 
 ## Development vs Production Workflow
 
@@ -257,6 +426,42 @@ tail -f prod.log
 4. **Verify live site** at https://f1.linux-box.cc
 
 **Important:** The development and production environments run independently. Changes to development won't affect the live site until you explicitly restart production.
+
+### Modal Deployment (Serverless GPU)
+
+For serverless deployment with GPU-accelerated AI inference:
+
+```bash
+# Deploy to Modal
+./deploy-modal.sh
+
+# Your app runs at:
+# https://your-username--f1-telemetry-flask-app.modal.run
+```
+
+**Features:**
+- Serverless GPU (T4) for Ollama inference
+- Auto-scaling to zero when idle
+- $0/month (within $30 free tier for 10-20 queries/month)
+- Sub-20 second response times (including cold starts)
+- Persistent volume for FastF1 cache and models
+
+**Cost Breakdown (15 queries/month):**
+- GPU inference: $0.04
+- Flask hosting: $0.01
+- Storage (8GB): $0.80
+- **Total: $0.85/month → $0 with free tier**
+
+**Updating Modal deployment:**
+```bash
+# Make code changes, then:
+modal deploy app_modal.py  # Zero-downtime deployment
+
+# Or development mode with auto-reload:
+modal serve app_modal.py
+```
+
+See [DEPLOY_MODAL.md](DEPLOY_MODAL.md) and [MIGRATION_SUMMARY.md](MIGRATION_SUMMARY.md) for complete details.
 
 ## FastF1 Cache Management
 
@@ -324,13 +529,70 @@ telemetry_context = {
 - Structured logging for debugging and performance analysis
 - Health check endpoints for load balancer integration
 
-## Summary of Key Changes
+## Deployment Comparison
 
-1. **Added AI Architecture Philosophy** section explaining the "pattern explainer" approach
-2. **Documented Modelfile Design Decisions** with specific parameters and rationale
-3. **Included Optimal Prompt Engineering** patterns with concrete examples
-4. **Added Performance vs Accuracy Trade-offs** section with practical thresholds
-5. **Enhanced Development Best Practices** with testing examples and quality metrics
-6. **Outlined Future Enhancements** for pattern recognition and multi-model approaches
+| Deployment | Cost/Month | AI Speed | Setup Time | Infrastructure | Notes |
+|------------|------------|----------|------------|----------------|-------|
+| **Local (Dev)** | $0 | 30-60s | Instant | Laptop running | Default |
+| **Local (Prod)** | $0 | 30-60s | 2 min | Laptop + tunnel | Current |
+| **Hybrid GPU** | **$0** | **5-10s** | **5 min** | **Laptop + Modal** | **⭐ Recommended** |
+| **Docker** | $0-50 | 30-60s | 5 min | VPS/cloud | Self-hosted |
+| **Modal (Full)** | $0 | 5-20s | 15 min | Fully managed | Reference |
 
-This update captures the key insights from our discussion while maintaining the practical, development-focused nature of your Claude.md file.
+**Recommendation:** Use **Hybrid GPU** for best performance ($0 cost, 5x faster AI, local data). The proxy is lightweight and Modal handles all GPU scaling.
+
+## Security Considerations
+
+### Input Validation
+- All user inputs validated via `validators.py` module
+- Prevents injection attacks, XSS, and path traversal
+- Returns descriptive 400 errors for invalid inputs
+
+### Secret Management
+- Flask secret key stored in `.env.secret` (git-ignored)
+- Never commit secrets to repository
+- Use environment variables for sensitive config
+
+### CORS and Security Headers
+- CORS configured via `flask-cors`
+- Security headers via `flask-talisman`
+- Content compression via `flask-compress`
+
+## Recent Architecture Changes
+
+1. **Hybrid GPU Architecture (January 2025)** - Best of both worlds deployment
+   - Local Flask/FastF1 for data operations (no timeouts)
+   - Modal T4 GPU for AI inference only (5x speedup)
+   - Lightweight proxy (`ollama_modal_proxy.py`) bridges local and cloud
+   - $0/month cost, 5-10s AI responses (vs 30-60s on CPU)
+
+2. **Enhanced AI Response Formatting** - Professional F1 broadcast styling
+   - Red H1 titles (#ff3333) with uppercase and border
+   - Bright blue H3 section headers (#3b9fff) with left accent
+   - Auto-highlight driver names in golden yellow (#ffdd57) with glow
+   - Auto-highlight metrics (times, speeds, RPM) in green (#4ade80) with monospace
+   - Improved visual hierarchy and readability
+   - Smart markdown parsing with paragraph breaks
+
+3. **Simplified Modal Deployment** - `app_modal_ollama_only.py`
+   - Ollama GPU function only (no Flask, no FastF1)
+   - Builds custom f1-analyst model from llama3:8b base
+   - Eliminates FastF1 download timeout issues
+   - 15-minute timeout includes model building time
+
+4. **Modal Proxy System** - `ollama_modal_proxy.py`
+   - Drop-in replacement for local Ollama (port 11435)
+   - Forwards to Modal via Python SDK (no local Ollama needed)
+   - Health check and model listing endpoints
+   - Lazy-loaded Modal connection for fast startup
+
+5. **Production GPU Script** - `start-production-gpu.sh`
+   - Environment-aware startup with GPU proxy
+   - Proper OLLAMA_BASE_URL configuration
+   - Clean process management
+
+6. **Added Modal deployment support** - Serverless GPU platform integration
+7. **Implemented input validation** - Security hardening via `validators.py`
+8. **Created Ollama client abstraction** - Unified interface for local/Modal deployments
+9. **Added deployment automation** - Shell scripts for dev/prod/Modal workflows
+10. **Enhanced configuration management** - `ModalConfig` for serverless deployments

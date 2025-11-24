@@ -786,6 +786,33 @@ def clear_cache():
     return {"error": "Session manager not available"}, 500
 
 
+@app.route("/warmup_gpu", methods=["POST"])
+def warmup_gpu():
+    """
+    Warmup endpoint - triggers GPU container to wake up.
+    Called when user visits the site to eliminate cold starts.
+    """
+    try:
+        import requests
+        ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+
+        # If using Modal proxy, forward to its warmup endpoint
+        if "11435" in ollama_url:  # Port 11435 = Modal proxy
+            response = requests.post(f"{ollama_url}/warmup", timeout=30)
+            return response.json()
+        else:
+            # Local Ollama - just ping it
+            response = requests.post(
+                f"{ollama_url}/api/generate",
+                json={"model": "qwen2.5-coder:7b", "prompt": "Ready", "stream": False},
+                timeout=30
+            )
+            return {"status": "warmed", "backend": "local-ollama"}
+    except Exception as e:
+        # Warmup is optional - don't break page load if it fails
+        return {"status": "warmup-failed", "error": str(e)}, 200  # Return 200 to avoid console errors
+
+
 # Initialize performance optimizations
 
 

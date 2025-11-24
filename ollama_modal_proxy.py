@@ -117,6 +117,30 @@ def health():
         return jsonify({"status": "unhealthy", "error": str(e)}), 503
 
 
+@app.route('/warmup', methods=['POST'])
+def warmup():
+    """
+    Warmup endpoint - triggers a lightweight inference to wake up Modal container.
+    Call this when user visits the site to eliminate cold starts.
+    """
+    try:
+        logging.info("🔥 Warming up Modal GPU container...")
+        modal_fn = get_modal_function()
+
+        # Send a tiny warmup prompt (fast inference, just to wake container)
+        result = modal_fn.remote(
+            model="qwen2.5-coder:7b",
+            prompt="Ready",
+            temperature=0.1
+        )
+
+        logging.info("✓ Modal container warmed up")
+        return jsonify({"status": "warmed", "backend": "modal-gpu"})
+    except Exception as e:
+        logging.error(f"✗ Warmup failed: {e}")
+        return jsonify({"status": "warmup-failed", "error": str(e)}), 503
+
+
 if __name__ == '__main__':
     print("🚀 Starting Ollama → Modal GPU Proxy")
     print("📍 Listening on: http://localhost:11435")
