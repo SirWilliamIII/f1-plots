@@ -1,6 +1,7 @@
 # F1 Telemetry Application - Project Structure
 
 ## Overview
+
 This document describes the reorganized project structure after comprehensive refactoring.
 
 ## Directory Structure
@@ -9,6 +10,7 @@ This document describes the reorganized project structure after comprehensive re
 f1-race-plots/
 ├── app/                          # Modular Flask application
 │   ├── __init__.py              # App factory (79 lines)
+│   ├── metrics.py               # Shared Prometheus metrics (15 lines)
 │   ├── services/                # Business logic
 │   │   ├── memory_service.py    # Memory monitoring (86 lines)
 │   │   ├── context_service.py   # Session context (55 lines)
@@ -77,21 +79,25 @@ f1-race-plots/
 ## Key Improvements from Refactoring
 
 ### 1. Code Organization
+
 **Before:** 1,551-line monolithic `app.py`
 **After:** 16 modular files with clear separation of concerns
 
 ### 2. Maintainability
+
 - Each module has a single, well-defined responsibility
 - Easy to locate and modify specific functionality
 - Independent testing of modules
 
 ### 3. File Organization
+
 - **Scripts**: All deployment/utility scripts in `/scripts`
 - **Documentation**: Comprehensive guides in `/docs`
 - **Tests**: Test files in `/tests`
 - **Clean root**: Only essential project files
 
 ### 4. Scalability
+
 - New routes can be added without touching existing code
 - Services can be extended independently
 - Middleware can be layered easily
@@ -99,6 +105,7 @@ f1-race-plots/
 ## Running the Application
 
 ### Development
+
 ```bash
 ./scripts/dev-start.sh
 # OR
@@ -106,34 +113,45 @@ python run.py
 ```
 
 ### Production (Local with GPU)
+
 ```bash
 ./scripts/start-production-gpu.sh
 ```
 
 ### Production (Oracle Cloud)
+
 ```bash
 ./scripts/deploy-to-oracle.sh
 ```
 
 ### Production (Modal Serverless)
+
 ```bash
 ./scripts/deploy-modal.sh
 ```
 
 ## Module Descriptions
 
+### app/
+
+- **metrics.py**: Shared Prometheus metrics (prevents duplicate registration)
+
 ### app/services/
+
 - **memory_service.py**: Memory monitoring, garbage collection, leak prevention
 - **context_service.py**: Session context storage and retrieval for AI analysis
 - **ai_service.py**: AI prompt creation and formatting
 
 ### app/plotting/
+
 - **telemetry_plots.py**: Complete telemetry plot generation with annotations
 
 ### app/middleware/
+
 - **cleanup.py**: Request cleanup hooks, session manager initialization
 
 ### app/routes/
+
 - **ollama_routes.py**: Proxy endpoints for Ollama AI integration
 - **api_routes.py**: Race/driver data endpoints, moment analysis
 - **cache_routes.py**: Cache statistics and management
@@ -144,11 +162,13 @@ python run.py
 ## Total Line Count Comparison
 
 **Before Refactoring:**
+
 - app.py: 1,551 lines
 
 **After Refactoring:**
-- Total modular code: ~1,778 lines across 16 files
+
+- Total modular code: ~1,793 lines across 17 files
 - Largest file: telemetry_plots.py (701 lines)
-- Average file size: ~111 lines
+- Average file size: ~105 lines
 
 **Result:** No file exceeds 1,000 lines, much easier to navigate and maintain.

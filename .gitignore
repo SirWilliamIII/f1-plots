@@ -213,3 +213,5 @@ fastf1_cache/
 # Old backup file
 app_old.py
 
+docs/
+docs/CLAUDE.md

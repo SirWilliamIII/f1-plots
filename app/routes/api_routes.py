@@ -9,20 +9,11 @@ import logging
 import requests
 from datetime import datetime
 from flask import request, jsonify, Response, stream_with_context, session as flask_session
-from prometheus_client import Counter, Histogram
 from session_manager import get_races_cached
 import fastf1 as f1
 from app.services.context_service import retrieve_telemetry_context
 from app.middleware.cleanup import get_session_manager
-
-
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
-)
-REQUEST_LATENCY = Histogram(
-    "http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"]
-)
+from app.metrics import REQUEST_COUNT, REQUEST_LATENCY
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 

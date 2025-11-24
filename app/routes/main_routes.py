@@ -6,20 +6,11 @@ Handles the main index route and telemetry comparison.
 
 import logging
 from flask import render_template, request
-from prometheus_client import Counter, Histogram
 from session_manager import get_races_cached
 from app.services.context_service import get_or_create_session_id, store_telemetry_context
 from app.plotting.telemetry_plots import compare_fastest_laps, set_last_plot_buffer
 from app.middleware.cleanup import get_session_manager
-
-
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
-)
-REQUEST_LATENCY = Histogram(
-    "http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"]
-)
+from app.metrics import REQUEST_COUNT, REQUEST_LATENCY
 
 
 def register_main_routes(app):

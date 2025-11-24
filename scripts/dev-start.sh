@@ -13,4 +13,4 @@ export PORT=5050
 export FLASK_ENV=development
 
 # Start the application
-uv run python app.py
+uv run python run.py
