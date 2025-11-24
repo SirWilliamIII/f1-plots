@@ -1,0 +1,110 @@
+#!/bin/bash
+#
+# F1 Race Plots - Local Development Startup Script
+#
+# Usage:
+#   ./start              # Development mode (port 5050, CPU)
+#   ./start --prod       # Production mode (port 5151, CPU)
+#   ./start --gpu        # Development mode with GPU proxy
+#   ./start --prod --gpu # Production mode with GPU proxy
+#
+
+set -e
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Default configuration
+MODE="development"
+PORT=5050
+USE_GPU=false
+OLLAMA_URL="http://localhost:11434"
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --prod|--production)
+            MODE="production"
+            PORT=5151
+            ;;
+        --gpu)
+            USE_GPU=true
+            OLLAMA_URL="http://localhost:11435"
+            ;;
+        --help|-h)
+            echo "F1 Race Plots - Local Startup Script"
+            echo ""
+            echo "Usage: ./start [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --prod, --production  Run in production mode (port 5151)"
+            echo "  --gpu                 Use Modal GPU proxy for AI inference"
+            echo "  --help, -h            Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  ./start                    # Dev mode, CPU (port 5050)"
+            echo "  ./start --prod             # Prod mode, CPU (port 5151)"
+            echo "  ./start --gpu              # Dev mode, GPU (port 5050)"
+            echo "  ./start --prod --gpu       # Prod mode, GPU (port 5151)"
+            exit 0
+            ;;
+    esac
+done
+
+echo -e "${BLUE}================================${NC}"
+echo -e "${BLUE}F1 Race Plots - Local Startup${NC}"
+echo -e "${BLUE}================================${NC}"
+echo ""
+echo -e "Mode:          ${GREEN}${MODE}${NC}"
+echo -e "Port:          ${GREEN}${PORT}${NC}"
+echo -e "Ollama:        ${GREEN}${OLLAMA_URL}${NC}"
+
+# Start GPU proxy if needed
+if [ "$USE_GPU" = true ]; then
+    echo ""
+    echo -e "${YELLOW}Starting Modal GPU proxy...${NC}"
+
+    # Check if proxy is already running
+    if lsof -Pi :11435 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ GPU proxy already running on port 11435${NC}"
+    else
+        # Start proxy in background
+        uv run python deployment/ollama_modal_proxy.py > logs/proxy.log 2>&1 &
+        PROXY_PID=$!
+        echo -e "${GREEN}✓ GPU proxy started (PID: $PROXY_PID)${NC}"
+        echo -e "  Logs: logs/proxy.log"
+
+        # Wait a moment for proxy to start
+        sleep 2
+
+        # Check if it's running
+        if ! lsof -Pi :11435 -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo -e "${YELLOW}⚠ Warning: GPU proxy may not have started correctly${NC}"
+            echo -e "  Check logs/proxy.log for details"
+        fi
+    fi
+fi
+
+# Export environment variables
+export FLASK_ENV=$MODE
+export PORT=$PORT
+export OLLAMA_BASE_URL=$OLLAMA_URL
+
+# Create logs directory if it doesn't exist
+mkdir -p logs
+
+echo ""
+echo -e "${GREEN}Starting Flask application...${NC}"
+echo ""
+
+# Start Flask
+if [ "$MODE" = "production" ]; then
+    # Production mode with gunicorn
+    uv run gunicorn run:app -c gunicorn.conf.py
+else
+    # Development mode with Flask dev server
+    uv run python run.py
+fi

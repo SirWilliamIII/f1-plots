@@ -1,0 +1,337 @@
+#!/bin/bash
+#
+# F1 Race Plots - Deployment Script
+#
+# Deploys changes to Oracle Cloud or Modal (or both)
+#
+# Usage:
+#   ./deploy                 # Interactive menu
+#   ./deploy --oracle        # Deploy to Oracle only
+#   ./deploy --modal         # Deploy to Modal only
+#   ./deploy --both          # Deploy to both
+#   ./deploy --ollama-gpu    # Deploy Ollama GPU function to Modal
+#
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Configuration
+ORACLE_USER="ubuntu"
+ORACLE_IP="84.8.155.16"
+ORACLE_KEY="$HOME/.ssh/ssh-key-2025-11-10.key"
+ORACLE_APP_DIR="/opt/f1-app"
+
+# Deployment targets
+DEPLOY_ORACLE=false
+DEPLOY_MODAL=false
+DEPLOY_OLLAMA_GPU=false
+
+# Helper functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[✓]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[⚠]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[✗]${NC} $1"
+}
+
+# Show banner
+show_banner() {
+    echo -e "${CYAN}"
+    echo "╔════════════════════════════════════════════╗"
+    echo "║   F1 Race Plots - Deployment Script       ║"
+    echo "╚════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+# Check for uncommitted changes
+check_git_status() {
+    log_info "Checking git status..."
+
+    if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        log_warning "You have uncommitted changes:"
+        echo ""
+        git status --short
+        echo ""
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_error "Deployment cancelled"
+            exit 1
+        fi
+    else
+        log_success "Working directory is clean"
+    fi
+}
+
+# Show interactive menu
+show_menu() {
+    echo ""
+    echo "Select deployment target:"
+    echo ""
+    echo "  1) Oracle Cloud (production)"
+    echo "  2) Modal (serverless)"
+    echo "  3) Modal Ollama GPU only (for hybrid setup)"
+    echo "  4) Both Oracle + Modal"
+    echo "  5) Cancel"
+    echo ""
+    read -p "Enter choice [1-5]: " choice
+
+    case $choice in
+        1)
+            DEPLOY_ORACLE=true
+            ;;
+        2)
+            DEPLOY_MODAL=true
+            ;;
+        3)
+            DEPLOY_OLLAMA_GPU=true
+            ;;
+        4)
+            DEPLOY_ORACLE=true
+            DEPLOY_MODAL=true
+            ;;
+        5)
+            log_info "Deployment cancelled"
+            exit 0
+            ;;
+        *)
+            log_error "Invalid choice"
+            exit 1
+            ;;
+    esac
+}
+
+# Deploy to Oracle Cloud
+deploy_oracle() {
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════${NC}"
+    echo -e "${CYAN}  Deploying to Oracle Cloud${NC}"
+    echo -e "${CYAN}═══════════════════════════════════${NC}"
+    echo ""
+
+    # Check SSH key exists
+    if [ ! -f "$ORACLE_KEY" ]; then
+        log_error "SSH key not found: $ORACLE_KEY"
+        exit 1
+    fi
+
+    log_info "Connecting to Oracle Cloud ($ORACLE_IP)..."
+
+    # Create deployment archive (exclude logs, cache, .venv)
+    log_info "Creating deployment archive..."
+    tar -czf /tmp/f1-app-deploy.tar.gz \
+        --exclude='logs/*' \
+        --exclude='fastf1_cache/*' \
+        --exclude='.venv' \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        --exclude='.git' \
+        --exclude='node_modules' \
+        .
+
+    log_success "Archive created"
+
+    # Copy files to Oracle
+    log_info "Copying files to Oracle Cloud..."
+    scp -i "$ORACLE_KEY" /tmp/f1-app-deploy.tar.gz "$ORACLE_USER@$ORACLE_IP:/tmp/"
+
+    # Extract and restart services
+    log_info "Extracting files and restarting services..."
+    ssh -i "$ORACLE_KEY" "$ORACLE_USER@$ORACLE_IP" << 'EOF'
+        set -e
+
+        # Extract files
+        cd /opt/f1-app
+        sudo tar -xzf /tmp/f1-app-deploy.tar.gz
+        sudo chown -R ubuntu:ubuntu /opt/f1-app
+        rm /tmp/f1-app-deploy.tar.gz
+
+        # Restart services
+        echo "Restarting Flask app..."
+        sudo systemctl restart f1-app
+
+        echo "Restarting Modal proxy..."
+        sudo systemctl restart f1-modal-proxy
+
+        # Wait a moment for services to start
+        sleep 2
+
+        # Check service status
+        echo ""
+        echo "Service Status:"
+        sudo systemctl status f1-app --no-pager | head -5
+        sudo systemctl status f1-modal-proxy --no-pager | head -5
+EOF
+
+    # Cleanup local archive
+    rm /tmp/f1-app-deploy.tar.gz
+
+    log_success "Deployed to Oracle Cloud!"
+    echo ""
+    log_info "Site: https://f1.probablyfine.lol or https://f1.linux-box.cc"
+    log_info "SSH: ssh -i $ORACLE_KEY $ORACLE_USER@$ORACLE_IP"
+    log_info "Logs: sudo tail -f /opt/f1-app/logs/app-error.log"
+}
+
+# Deploy to Modal (full app)
+deploy_modal() {
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════${NC}"
+    echo -e "${CYAN}  Deploying to Modal (Full App)${NC}"
+    echo -e "${CYAN}═══════════════════════════════════${NC}"
+    echo ""
+
+    # Check if modal is installed
+    if ! command -v modal &> /dev/null; then
+        log_error "Modal CLI not found. Installing..."
+        pip install modal
+    fi
+
+    # Check authentication
+    if ! modal token get &> /dev/null; then
+        log_warning "Not authenticated with Modal. Running setup..."
+        modal setup
+    fi
+
+    log_info "Deploying full application to Modal..."
+    modal deploy deployment/app_modal.py
+
+    log_success "Deployed to Modal!"
+    echo ""
+    log_info "View logs: modal app logs f1-telemetry"
+    log_info "Check costs: https://modal.com/usage"
+}
+
+# Deploy Ollama GPU function only
+deploy_ollama_gpu() {
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════${NC}"
+    echo -e "${CYAN}  Deploying Ollama GPU to Modal${NC}"
+    echo -e "${CYAN}═══════════════════════════════════${NC}"
+    echo ""
+
+    # Check if modal is installed
+    if ! command -v modal &> /dev/null; then
+        log_error "Modal CLI not found. Installing..."
+        pip install modal
+    fi
+
+    # Check authentication
+    if ! modal token get &> /dev/null; then
+        log_warning "Not authenticated with Modal. Running setup..."
+        modal setup
+    fi
+
+    log_info "Deploying Ollama GPU function to Modal..."
+    modal deploy deployment/app_modal_ollama_only.py
+
+    log_success "Deployed Ollama GPU function!"
+    echo ""
+    log_info "This GPU function can be used with the local Flask app via the proxy:"
+    log_info "  1. Start proxy: uv run python deployment/ollama_modal_proxy.py &"
+    log_info "  2. Start Flask: export OLLAMA_BASE_URL=http://localhost:11435 && ./start --prod"
+}
+
+# Parse command-line arguments
+if [ $# -eq 0 ]; then
+    # No arguments - show interactive menu
+    show_banner
+    check_git_status
+    show_menu
+else
+    # Parse flags
+    for arg in "$@"; do
+        case $arg in
+            --oracle)
+                DEPLOY_ORACLE=true
+                ;;
+            --modal)
+                DEPLOY_MODAL=true
+                ;;
+            --ollama-gpu)
+                DEPLOY_OLLAMA_GPU=true
+                ;;
+            --both)
+                DEPLOY_ORACLE=true
+                DEPLOY_MODAL=true
+                ;;
+            --help|-h)
+                show_banner
+                echo "Usage: ./deploy [OPTIONS]"
+                echo ""
+                echo "Options:"
+                echo "  --oracle       Deploy to Oracle Cloud only"
+                echo "  --modal        Deploy full app to Modal"
+                echo "  --ollama-gpu   Deploy Ollama GPU function to Modal (for hybrid setup)"
+                echo "  --both         Deploy to both Oracle and Modal"
+                echo "  --help, -h     Show this help message"
+                echo ""
+                echo "Examples:"
+                echo "  ./deploy                 # Interactive menu"
+                echo "  ./deploy --oracle        # Deploy to Oracle only"
+                echo "  ./deploy --modal         # Deploy to Modal only"
+                echo "  ./deploy --ollama-gpu    # Deploy GPU function for hybrid setup"
+                echo "  ./deploy --both          # Deploy to Oracle and Modal"
+                exit 0
+                ;;
+            *)
+                log_error "Unknown option: $arg"
+                echo "Use --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
+
+    show_banner
+    check_git_status
+fi
+
+# Execute deployments
+if [ "$DEPLOY_ORACLE" = true ]; then
+    deploy_oracle
+fi
+
+if [ "$DEPLOY_MODAL" = true ]; then
+    deploy_modal
+fi
+
+if [ "$DEPLOY_OLLAMA_GPU" = true ]; then
+    deploy_ollama_gpu
+fi
+
+# Summary
+echo ""
+echo -e "${GREEN}═══════════════════════════════════${NC}"
+echo -e "${GREEN}  Deployment Complete! 🎉${NC}"
+echo -e "${GREEN}═══════════════════════════════════${NC}"
+echo ""
+
+if [ "$DEPLOY_ORACLE" = true ]; then
+    echo -e "Oracle Cloud: ${GREEN}✓${NC} https://f1.probablyfine.lol"
+fi
+
+if [ "$DEPLOY_MODAL" = true ]; then
+    echo -e "Modal (Full):  ${GREEN}✓${NC} Check modal.com/apps"
+fi
+
+if [ "$DEPLOY_OLLAMA_GPU" = true ]; then
+    echo -e "Modal (GPU):   ${GREEN}✓${NC} Ready for hybrid setup"
+fi
+
+echo ""
