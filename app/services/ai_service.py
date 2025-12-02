@@ -12,7 +12,6 @@ def create_contextual_prompt(user_prompt, context):
     drv1 = context["driver1"]
     drv2 = context["driver2"]
     comparison = context["comparison"]
-    sectors = context["sectors"]
 
     # Simplified context for faster processing
     context_text = f"""
@@ -20,15 +19,29 @@ F1 TELEMETRY ANALYSIS:
 {race_info['year']} {race_info['race_name']} - {race_info['session_type']}
 
 DRIVERS:
-**{drv1['name']}** ({drv1['full_name']}): {drv1['lap_time']:.3f}s, {drv1['max_speed']:.0f} km/h
-**{drv2['name']}** ({drv2['full_name']}): {drv2['lap_time']:.3f}s, {drv2['max_speed']:.0f} km/h
+**{drv1['name']}** ({drv1.get('full_name', drv1['name'])}): {drv1['lap_time']:.3f}s"""
 
-RESULT: **{comparison['faster_driver']}** faster by {comparison['lap_time_delta']:.3f}s
+    # Add max speed if available
+    if 'max_speed' in drv1:
+        context_text += f", {drv1['max_speed']:.0f} km/h"
+
+    context_text += f"""
+**{drv2['name']}** ({drv2.get('full_name', drv2['name'])}): {drv2['lap_time']:.3f}s"""
+
+    if 'max_speed' in drv2:
+        context_text += f", {drv2['max_speed']:.0f} km/h"
+
+    context_text += f"""
+
+RESULT: **{comparison['faster_driver']}** faster by {comparison.get('lap_time_delta', comparison.get('delta', 0)):.3f}s"""
+
+    # Add sectors if available
+    if "sectors" in context and context["sectors"]:
+        context_text += """
 
 SECTORS:"""
-
-    for sector in sectors:
-        context_text += f"""
+        for sector in context["sectors"]:
+            context_text += f"""
 Sector {sector['sector']}: {sector['faster_driver']} faster by {sector['delta']:.3f}s
 - {drv1['name']}: {sector['driver1_time']:.3f}s
 - {drv2['name']}: {sector['driver2_time']:.3f}s"""

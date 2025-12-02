@@ -80,6 +80,29 @@ def register_main_routes(app):
 
                     # Store telemetry context with plot annotations for AI analysis
                     session_id = get_or_create_session_id(request)
+
+                    # Build sector comparison data for AI
+                    sectors_data = []
+                    for i in range(3):
+                        if i < len(drv1_sectors) and i < len(drv2_sectors):
+                            drv1_sector = drv1_sectors[i]
+                            drv2_sector = drv2_sectors[i]
+                            # Parse sector times (handle "N/A" cases)
+                            try:
+                                drv1_time = float(drv1_sector['time'].replace('s', ''))
+                                drv2_time = float(drv2_sector['time'].replace('s', ''))
+                                delta_time = drv1_time - drv2_time
+                                sectors_data.append({
+                                    "sector": i + 1,
+                                    "driver1_time": drv1_time,
+                                    "driver2_time": drv2_time,
+                                    "delta": abs(delta_time),
+                                    "faster_driver": drv1_abbr if delta_time < 0 else drv2_abbr
+                                })
+                            except (ValueError, KeyError):
+                                # Skip sectors with N/A times
+                                pass
+
                     telemetry_context = {
                         "plot_annotations": plot_annotations,
                         "race_info": {
@@ -99,8 +122,10 @@ def register_main_routes(app):
                         },
                         "comparison": {
                             "faster_driver": faster_driver,
-                            "delta": delta
-                        }
+                            "delta": delta,
+                            "lap_time_delta": delta
+                        },
+                        "sectors": sectors_data
                     }
                     store_telemetry_context(session_id, telemetry_context)
 
