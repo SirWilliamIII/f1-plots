@@ -15,10 +15,10 @@ class SessionManagerConfig:
 
     # Threading configuration
     max_workers: int = 2
-    enable_preloading: bool = True
+    enable_preloading: bool = False  # Disabled to prevent cache thrashing
 
-    # Cache configuration  
-    max_cache_size: int = 10  # Maximum number of sessions to cache (reduced for memory)
+    # Cache configuration
+    max_cache_size: int = 20  # Maximum number of sessions to cache
     cache_directory: str = "fastf1_cache"
 
     # Performance tuning
@@ -93,7 +93,7 @@ class ModalConfig:
     cache_path: str = "/cache/fastf1_cache"  # Path within Modal volume
 
     # Ollama configuration
-    ollama_model: str = "f1-analyst:latest"
+    ollama_model: str = "qwen2.5-coder:7b"  # Use base model (f1-analyst crashes on Modal)
     ollama_temperature: float = 0.1
 
     # Flask app configuration
@@ -113,6 +113,8 @@ GUNICORN_CONFIG = GunicornConfig()
 MODAL_CONFIG = ModalConfig()
 
 # Environment-specific overrides
+import logging
+logging.info(f"🔧 FLASK_ENV={os.getenv('FLASK_ENV')}")
 if os.getenv("FLASK_ENV") == "development":
     SESSION_CONFIG.max_workers = 1
     SESSION_CONFIG.enable_preloading = False

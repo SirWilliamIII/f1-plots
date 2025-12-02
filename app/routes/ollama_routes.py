@@ -43,7 +43,7 @@ def register_ollama_routes(app):
 
             request_data = request.json.copy()
             user_prompt = request_data.get("prompt", "")
-            request_data["model"] = "f1-analyst:latest"
+            request_data["model"] = "qwen2.5-coder:7b"  # Use base model instead of custom f1-analyst
 
             # Performance optimizations for speed
             request_data["options"] = {

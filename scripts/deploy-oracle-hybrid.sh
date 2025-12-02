@@ -107,7 +107,7 @@ Type=simple
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment="PATH=$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/root/.local/bin/uv run python ollama_modal_proxy.py
+ExecStart=/root/.local/bin/uv run python deployment/ollama_modal_proxy.py
 Restart=always
 RestartSec=10
 
@@ -135,7 +135,7 @@ User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=$APP_DIR/.env
 Environment="PATH=$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/root/.local/bin/uv run python app.py
+ExecStart=/root/.local/bin/uv run python run.py
 Restart=always
 RestartSec=10
 

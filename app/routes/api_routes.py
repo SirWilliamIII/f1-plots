@@ -189,7 +189,7 @@ Explain what technique advantage occurred here and why it made a difference. Be 
 
             # Forward to Ollama with optimized settings
             request_data = {
-                "model": "f1-analyst:latest",
+                "model": "qwen2.5-coder:7b",  # Use base model instead of custom f1-analyst
                 "prompt": moment_prompt,
                 "stream": data.get("stream", True),
                 "options": {

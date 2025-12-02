@@ -32,6 +32,7 @@ if not hasattr(app, "_initialized"):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5151))
+    debug = os.getenv("FLASK_ENV") == "development"
     logging.info(f"🚀 Starting Flask app on port: {port}")
     logging.info(f"🌐 Access the app at: http://localhost:{port}")
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=debug, host='0.0.0.0', port=port)
