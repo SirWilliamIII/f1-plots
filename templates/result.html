@@ -37,10 +37,12 @@
           <span class="header-title"
             >{{ race_title }} · {{ session_name }}</span
           >
-          <a href="/" class="header-link">Generate New Plot</a>
-          <button onclick="window.print()" class="header-btn">
-            Download PDF
-          </button>
+          <div class="header-actions">
+            <a href="/" class="header-link">Generate New Plot</a>
+            <button onclick="window.print()" class="header-btn">
+              Download PDF
+            </button>
+          </div>
         </div>
       </div>
 
@@ -62,55 +64,58 @@
         </div>
         <!-- Driver Info Sidebar (right) -->
         <div class="driver-info-sidebar">
-          <!-- Driver 1 F1 TV Panel -->
-          <div class="f1tv-driver-panel">
-            <div class="f1tv-header">
-              <span
-                class="f1tv-team-bar"
-                style="background: {{ drv1_team_color }}"
-              ></span>
-              <span class="f1tv-pos">{{ drv1_position }}</span>
-              <span class="f1tv-code">{{ drv1_abbr }}</span>
-              <span class="f1tv-lap-time">{{ drv1_lap_time }}</span>
+          <!-- Driver Comparison Section -->
+          <div class="driver-comparison-section">
+            <!-- Driver 1 F1 TV Panel -->
+            <div class="f1tv-driver-panel">
+              <div class="f1tv-header">
+                <span
+                  class="f1tv-team-bar"
+                  style="background: {{ drv1_team_color }}"
+                ></span>
+                <span class="f1tv-pos">{{ drv1_position }}</span>
+                <span class="f1tv-code">{{ drv1_abbr }}</span>
+                <span class="f1tv-lap-time">{{ drv1_lap_time }}</span>
+              </div>
+              <div class="f1tv-gap">
+                Gap to {{ leader_abbr }}: {{ drv1_lap_gap }}
+              </div>
+              <div class="f1tv-sectors">
+                {% for sector in drv1_sectors %}
+                <span class="f1tv-sector-pill {{ sector.f1_color }}">
+                  {{ sector.time }}
+                  <span class="f1tv-sector-gap">{{ sector.gap }}</span>
+                </span>
+                {% endfor %}
+              </div>
             </div>
-            <div class="f1tv-gap">
-              Gap to {{ leader_abbr }}: {{ drv1_lap_gap }}
+            <!-- Driver 2 F1 TV Panel -->
+            <div class="f1tv-driver-panel">
+              <div class="f1tv-header">
+                <span
+                  class="f1tv-team-bar"
+                  style="background: {{ drv2_team_color }}"
+                ></span>
+                <span class="f1tv-pos">{{ drv2_position }}</span>
+                <span class="f1tv-code">{{ drv2_abbr }}</span>
+                <span class="f1tv-lap-time">{{ drv2_lap_time }}</span>
+              </div>
+              <div class="f1tv-gap">
+                Gap to {{ leader_abbr }}: {{ drv2_lap_gap }}
+              </div>
+              <div class="f1tv-sectors">
+                {% for sector in drv2_sectors %}
+                <span class="f1tv-sector-pill {{ sector.f1_color }}">
+                  {{ sector.time }}
+                  <span class="f1tv-sector-gap">{{ sector.gap }}</span>
+                </span>
+                {% endfor %}
+              </div>
             </div>
-            <div class="f1tv-sectors">
-              {% for sector in drv1_sectors %}
-              <span class="f1tv-sector-pill {{ sector.f1_color }}">
-                {{ sector.time }}
-                <span class="f1tv-sector-gap">{{ sector.gap }}</span>
-              </span>
-              {% endfor %}
+            <!-- Lap time delta label below driver info -->
+            <div class="lap-time-delta">
+              {{ faster_driver }} faster by {{ '%.3f'|format(delta) }}s
             </div>
-          </div>
-          <!-- Driver 2 F1 TV Panel -->
-          <div class="f1tv-driver-panel">
-            <div class="f1tv-header">
-              <span
-                class="f1tv-team-bar"
-                style="background: {{ drv2_team_color }}"
-              ></span>
-              <span class="f1tv-pos">{{ drv2_position }}</span>
-              <span class="f1tv-code">{{ drv2_abbr }}</span>
-              <span class="f1tv-lap-time">{{ drv2_lap_time }}</span>
-            </div>
-            <div class="f1tv-gap">
-              Gap to {{ leader_abbr }}: {{ drv2_lap_gap }}
-            </div>
-            <div class="f1tv-sectors">
-              {% for sector in drv2_sectors %}
-              <span class="f1tv-sector-pill {{ sector.f1_color }}">
-                {{ sector.time }}
-                <span class="f1tv-sector-gap">{{ sector.gap }}</span>
-              </span>
-              {% endfor %}
-            </div>
-          </div>
-          <!-- Lap time delta label below driver info -->
-          <div class="lap-time-delta">
-            {{ faster_driver }} faster by {{ '%.3f'|format(delta) }}s
           </div>
           
           <!-- Moment Annotations Legend -->
