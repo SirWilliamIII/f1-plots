@@ -25,6 +25,7 @@ def init_session_manager():
 
 def register_cleanup_hooks(app):
     """Register memory cleanup and warmup hooks"""
+    import os
     global session_manager
     session_manager = init_session_manager()
 
@@ -43,21 +44,23 @@ def register_cleanup_hooks(app):
 
         return response
 
-    @app.before_request
-    def warm_cache():
-        """Pre-load popular sessions into cache"""
-        popular_sessions = [
-            (2024, "British Grand Prix", "R"),
-            (2024, "Monaco Grand Prix", "Q"),
-            (2023, "Abu Dhabi Grand Prix", "R"),
-        ]
+    # Only register warm_cache hook if NOT on Modal (causes timeouts)
+    if not os.getenv("MODAL_DEPLOYMENT", "").lower() == "true":
+        @app.before_request
+        def warm_cache():
+            """Pre-load popular sessions into cache"""
+            popular_sessions = [
+                (2024, "British Grand Prix", "R"),
+                (2024, "Monaco Grand Prix", "Q"),
+                (2023, "Abu Dhabi Grand Prix", "R"),
+            ]
 
-        for year, race, session_type in popular_sessions:
-            try:
-                session_manager.get_session(year, race, session_type)
-                logging.info(f"✅ Pre-loaded {year} {race} {session_type}")
-            except Exception as e:
-                logging.warning(f"Could not pre-load {year} {race}: {e}")
+            for year, race, session_type in popular_sessions:
+                try:
+                    session_manager.get_session(year, race, session_type)
+                    logging.info(f"✅ Pre-loaded {year} {race} {session_type}")
+                except Exception as e:
+                    logging.warning(f"Could not pre-load {year} {race}: {e}")
 
 
 def get_session_manager():

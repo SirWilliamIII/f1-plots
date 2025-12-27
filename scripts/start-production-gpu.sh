@@ -16,7 +16,7 @@ lsof -ti:11435 | xargs kill -9 2>/dev/null || true
 
 # Start Ollama Modal Proxy in background
 echo "🔥 Starting Ollama Modal GPU Proxy..."
-uv run python ollama_modal_proxy.py > proxy.log 2>&1 &
+uv run python deployment/ollama_modal_proxy.py > logs/proxy.log 2>&1 &
 PROXY_PID=$!
 echo "   Proxy PID: $PROXY_PID"
 
@@ -30,7 +30,7 @@ export OLLAMA_BASE_URL=http://localhost:11435
 
 # Start Flask app
 echo "🏎️  Starting Flask application..."
-uv run python app.py
+uv run python run.py
 
 # Cleanup on exit
 trap "kill $PROXY_PID 2>/dev/null" EXIT
