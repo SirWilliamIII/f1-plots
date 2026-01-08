@@ -20,7 +20,8 @@ def register_main_routes(app):
     def index():
         """Main index route with session management and telemetry comparison"""
 
-        REQUEST_COUNT.labels(method=request.method, endpoint="/", status="200").inc()
+        # ✅ FIXED: Don't increment metrics here (wait for after_request)
+        # Previously incremented status="200" before knowing actual status
         with REQUEST_LATENCY.labels(method=request.method, endpoint="/").time():
 
             years = list(range(2020, 2026))
@@ -50,11 +51,36 @@ def register_main_routes(app):
                 driver2 = request.form.get("driver2")
                 session_type = session_map.get(selected_session, selected_session)
 
-                # Validate form data
-                if not (selected_year and selected_race and driver1 and driver2 and driver1 != driver2):
-                    error_msg = 'Please select different drivers and valid race parameters'
-                    logging.error(f"❌ Invalid form data: {error_msg}")
-                    return render_template('index.html', races=races, error=error_msg)
+                # ✅ FIXED: Validate form data with proper error handling
+                if not (selected_year and selected_race and driver1 and driver2):
+                    error_msg = 'Please fill in all fields (year, race, session, and both drivers)'
+                    logging.warning(f"⚠️  Validation failed: missing fields")
+                    return render_template(
+                        'index.html',
+                        years=years,  # ✅ Include years so template doesn't crash
+                        sessions=sessions,  # ✅ Include sessions
+                        races=races,
+                        error=error_msg,
+                        # ✅ Preserve user selections
+                        selected_year=selected_year,
+                        selected_race=selected_race,
+                        selected_session=selected_session
+                    ), 400  # ✅ Proper HTTP status code
+
+                if driver1 == driver2:
+                    error_msg = f'Please select different drivers (both are currently {driver1})'
+                    logging.warning(f"⚠️  Validation failed: duplicate drivers ({driver1})")
+                    return render_template(
+                        'index.html',
+                        years=years,  # ✅ Include all required context
+                        sessions=sessions,
+                        races=races,
+                        error=error_msg,
+                        # ✅ Preserve user selections
+                        selected_year=selected_year,
+                        selected_race=selected_race,
+                        selected_session=selected_session
+                    ), 400
 
                 try:
                     logging.info(f"🏎️  Loading {selected_year} {selected_race} {selected_session} for session {session_id[:8]}")

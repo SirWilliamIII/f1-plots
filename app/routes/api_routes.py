@@ -24,7 +24,7 @@ def register_api_routes(app):
     @app.route("/get_races", methods=["POST"])
     def get_races():
         """Get list of races for a given year"""
-        REQUEST_COUNT.labels(method="POST", endpoint="/get_races", status="200").inc()
+        # ✅ FIXED: Don't increment metrics here (wait for after_request)
         with REQUEST_LATENCY.labels(method="POST", endpoint="/get_races").time():
             year = int(request.form["year"])
             try:
@@ -49,16 +49,14 @@ def register_api_routes(app):
                 logging.info(f"Returning {len(race_names)} races for year={year}")
                 return jsonify({"races": race_names})
             except Exception as e:
-                REQUEST_COUNT.labels(
-                    method="POST", endpoint="/get_races", status="500"
-                ).inc()
+                # ✅ FIXED: Don't manually increment here (after_request will do it)
                 logging.error(f"[ERROR] Failed to fetch races: {e}")
                 return jsonify({"error": "Failed to fetch races"}), 500
 
     @app.route("/get_drivers", methods=["POST"])
     def get_drivers():
         """Returns a JSON list of drivers for the selected year, race, and session"""
-        REQUEST_COUNT.labels(method="POST", endpoint="/get_drivers", status="200").inc()
+        # ✅ FIXED: Don't increment metrics here (wait for after_request)
         with REQUEST_LATENCY.labels(method="POST", endpoint="/get_drivers").time():
             try:
                 year = int(request.form["year"])
@@ -103,9 +101,7 @@ def register_api_routes(app):
                 return jsonify({"drivers": driver_options})
 
             except TimeoutError:
-                REQUEST_COUNT.labels(
-                    method="POST", endpoint="/get_drivers", status="504"
-                ).inc()
+                # ✅ FIXED: Don't manually increment here (after_request will do it)
                 return (
                     jsonify(
                         {
@@ -116,9 +112,7 @@ def register_api_routes(app):
                     504,
                 )
             except Exception as e:
-                REQUEST_COUNT.labels(
-                    method="POST", endpoint="/get_drivers", status="500"
-                ).inc()
+                # ✅ FIXED: Don't manually increment here (after_request will do it)
                 error_msg = str(e)
                 if (
                     "SessionNotAvailableError" in error_msg

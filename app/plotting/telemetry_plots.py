@@ -18,8 +18,8 @@ from utils import classify_moment, extract_telemetry_context
 from app.services.context_service import store_telemetry_context
 
 
-# Global variable for plot buffer (backward compatibility)
-last_plot_buf = None
+# ✅ FIXED: Removed global plot buffer to prevent cross-user data leaks
+# Plot buffers are now stored per-session in Flask sessions
 
 
 def safe_int(val, default=0):
@@ -555,12 +555,40 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
 
 def set_last_plot_buffer(plot_buffer):
-    """Set global plot buffer for serving"""
-    global last_plot_buf
-    last_plot_buf = plot_buffer
+    """
+    Store plot buffer in user's Flask session (thread-safe, per-user)
+
+    ✅ FIXED: Previously used global variable causing cross-user data leaks
+    """
+    import base64
+
+    # Convert buffer to base64 for session storage
+    plot_buffer.seek(0)
+    plot_b64 = base64.b64encode(plot_buffer.read()).decode('utf-8')
+    flask_session['plot_data'] = plot_b64
+
+    buffer_size = len(plot_b64)
+    logging.info(f"📊 Stored plot in session (size: {buffer_size:,} bytes)")
 
 
 def get_last_plot_buffer():
-    """Get global plot buffer"""
-    global last_plot_buf
-    return last_plot_buf
+    """
+    Retrieve plot buffer from user's Flask session
+
+    ✅ FIXED: Now retrieves from user's own session, not global variable
+    """
+    import base64
+
+    plot_b64 = flask_session.get('plot_data')
+    if not plot_b64:
+        logging.warning("❌ No plot data in session")
+        return None
+
+    try:
+        plot_bytes = base64.b64decode(plot_b64)
+        plot_buffer = BytesIO(plot_bytes)
+        logging.info(f"✅ Retrieved plot from session (size: {len(plot_bytes):,} bytes)")
+        return plot_buffer
+    except Exception as e:
+        logging.error(f"Failed to decode plot from session: {e}")
+        return None
