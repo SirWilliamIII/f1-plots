@@ -27,7 +27,10 @@
       "Bash(launchctl list:*)",
       "Bash(lsof:*)",
       "Bash(kill:*)",
-      "Bash(modal app list:*)"
+      "Bash(modal app list:*)",
+      "Bash(scp:*)",
+      "Bash(python:*)",
+      "Bash(sudo rm:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
