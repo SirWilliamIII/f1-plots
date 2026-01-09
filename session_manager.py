@@ -14,6 +14,7 @@ from typing import Dict, Tuple, List, Optional
 import time
 from functools import lru_cache
 from datetime import datetime, timedelta
+from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
 
 
 def initialize_fastf1_cache(cache_dir: str = "fastf1_cache"):
@@ -96,6 +97,17 @@ class SmartSessionManager:
             session.load(telemetry=False, weather=False, messages=False)
             return session
         except Exception as e:
+            error_tracker = get_error_tracker()
+            error_tracker.capture_exception(
+                e,
+                context={
+                    'operation': 'get_drivers_only',
+                    'year': year,
+                    'race': race,
+                    'session_type': session_type
+                },
+                level=ErrorSeverity.ERROR
+            )
             logging.error(f"Failed to get drivers for {year} {race} {session_type}: {e}")
             raise
 
@@ -156,12 +168,12 @@ class SmartSessionManager:
     def _load_session_internal(self, year: int, race: str, session_type: str, is_preload: bool = False):
         """Internal method to load a session"""
         cache_key = (year, race, session_type)
-        
+
         try:
             # Load the session
             session = fastf1.get_session(year, race, session_type)
             session.load()
-            
+
             # Add to cache
             with self._cache_lock:
                 # Implement simple LRU by removing oldest if cache is full
@@ -170,14 +182,27 @@ class SmartSessionManager:
                     oldest_key = next(iter(self._session_cache))
                     del self._session_cache[oldest_key]
                     logging.info(f"♻️  Evicted from cache: {oldest_key}")
-                
+
                 self._session_cache[cache_key] = session
-            
+
             action = "preloaded" if is_preload else "loaded"
             logging.info(f"✅ Successfully {action}: {year} {race} {session_type}")
             return session
-            
+
         except Exception as e:
+            error_tracker = get_error_tracker()
+            error_tracker.capture_exception(
+                e,
+                context={
+                    'operation': 'load_session',
+                    'year': year,
+                    'race': race,
+                    'session_type': session_type,
+                    'is_preload': is_preload,
+                    'cache_size': len(self._session_cache)
+                },
+                level=ErrorSeverity.ERROR
+            )
             logging.error(f"💥 Failed to load session {year} {race} {session_type}: {e}")
             raise
     

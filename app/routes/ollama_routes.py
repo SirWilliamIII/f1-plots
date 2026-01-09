@@ -10,6 +10,7 @@ import requests
 from flask import request, jsonify, Response, stream_with_context, session as flask_session
 from app.services.context_service import retrieve_telemetry_context
 from app.services.ai_service import create_contextual_prompt
+from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
 
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
@@ -30,6 +31,16 @@ def register_ollama_routes(app):
                 content_type=resp.headers.get("content-type"),
             )
         except requests.exceptions.RequestException as e:
+            error_tracker = get_error_tracker()
+            error_tracker.capture_exception(
+                e,
+                context={
+                    'operation': 'ollama_tags',
+                    'ollama_url': OLLAMA_BASE_URL,
+                    'endpoint': '/ollama_proxy/tags'
+                },
+                level=ErrorSeverity.ERROR
+            )
             logging.error(f"DEBUG: Ollama connection failed: {e}")
             return jsonify({"error": "Ollama not available", "url": OLLAMA_BASE_URL, "details": str(e)}), 503
 
@@ -96,6 +107,19 @@ def register_ollama_routes(app):
                 )
 
         except Exception as e:
+            error_tracker = get_error_tracker()
+            session_id = flask_session.get('telemetry_session_id', 'unknown')
+            error_tracker.capture_exception(
+                e,
+                context={
+                    'operation': 'ollama_generate',
+                    'ollama_url': OLLAMA_BASE_URL,
+                    'endpoint': '/ollama_proxy/generate',
+                    'session_id': session_id,
+                    'has_context': bool(flask_session.get('telemetry_session_id'))
+                },
+                level=ErrorSeverity.ERROR
+            )
             logging.error(f"❌ Ollama proxy error: {e}")
             logging.error(f"❌ Error type: {type(e).__name__}")
             logging.error(f"❌ Traceback: ", exc_info=True)

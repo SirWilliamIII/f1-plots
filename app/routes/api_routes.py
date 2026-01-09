@@ -14,6 +14,7 @@ import fastf1 as f1
 from app.services.context_service import retrieve_telemetry_context
 from app.middleware.cleanup import get_session_manager
 from app.metrics import REQUEST_COUNT, REQUEST_LATENCY
+from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 
@@ -49,7 +50,16 @@ def register_api_routes(app):
                 logging.info(f"Returning {len(race_names)} races for year={year}")
                 return jsonify({"races": race_names})
             except Exception as e:
-                # ✅ FIXED: Don't manually increment here (after_request will do it)
+                error_tracker = get_error_tracker()
+                error_tracker.capture_exception(
+                    e,
+                    context={
+                        'operation': 'get_races',
+                        'year': year,
+                        'endpoint': '/get_races'
+                    },
+                    level=ErrorSeverity.ERROR
+                )
                 logging.error(f"[ERROR] Failed to fetch races: {e}")
                 return jsonify({"error": "Failed to fetch races"}), 500
 
@@ -100,8 +110,19 @@ def register_api_routes(app):
                 logging.info(f"✅ Returning {len(driver_options)} drivers")
                 return jsonify({"drivers": driver_options})
 
-            except TimeoutError:
-                # ✅ FIXED: Don't manually increment here (after_request will do it)
+            except TimeoutError as e:
+                error_tracker = get_error_tracker()
+                error_tracker.capture_exception(
+                    e,
+                    context={
+                        'operation': 'get_drivers',
+                        'year': year,
+                        'race': race,
+                        'session': session_name,
+                        'endpoint': '/get_drivers'
+                    },
+                    level=ErrorSeverity.WARNING
+                )
                 return (
                     jsonify(
                         {
@@ -112,12 +133,14 @@ def register_api_routes(app):
                     504,
                 )
             except Exception as e:
-                # ✅ FIXED: Don't manually increment here (after_request will do it)
                 error_msg = str(e)
+                # Session not available is expected for some combinations
                 if (
                     "SessionNotAvailableError" in error_msg
                     or "No data for this session" in error_msg
                 ):
+                    # Don't track as error - this is expected behavior
+                    logging.warning(f"Session data not available: {year} {race} {session_name}")
                     return (
                         jsonify(
                             {
@@ -127,6 +150,20 @@ def register_api_routes(app):
                         ),
                         400,
                     )
+
+                # Track unexpected errors
+                error_tracker = get_error_tracker()
+                error_tracker.capture_exception(
+                    e,
+                    context={
+                        'operation': 'get_drivers',
+                        'year': year,
+                        'race': race,
+                        'session': session_name,
+                        'endpoint': '/get_drivers'
+                    },
+                    level=ErrorSeverity.ERROR
+                )
                 logging.error(f"[ERROR] Failed to fetch drivers: {e}")
                 return (
                     jsonify({"error": "Failed to load session data", "details": str(e)}),
@@ -230,5 +267,19 @@ Explain what technique advantage occurred here and why it made a difference. Be 
                     return jsonify({"error": "Failed to parse AI response"}), 500
 
         except Exception as e:
+            error_tracker = get_error_tracker()
+            session_id = flask_session.get('telemetry_session_id', 'unknown')
+            moment_id = request.json.get('moment_id') if request.json else None
+
+            error_tracker.capture_exception(
+                e,
+                context={
+                    'operation': 'analyze_moment',
+                    'session_id': session_id,
+                    'moment_id': moment_id,
+                    'endpoint': '/api/analyze_moment'
+                },
+                level=ErrorSeverity.ERROR
+            )
             logging.error(f"Moment analysis error: {e}")
             return jsonify({"error": str(e)}), 500

@@ -11,6 +11,7 @@ from app.services.context_service import get_or_create_session_id, store_telemet
 from app.plotting.telemetry_plots import compare_fastest_laps, set_last_plot_buffer
 from app.middleware.cleanup import get_session_manager
 from app.metrics import REQUEST_COUNT, REQUEST_LATENCY
+from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
 
 
 def register_main_routes(app):
@@ -197,6 +198,24 @@ def register_main_routes(app):
 
                 except Exception as e:
                     import traceback
+
+                    # Capture exception with full context
+                    error_tracker = get_error_tracker()
+                    error_tracker.capture_exception(
+                        e,
+                        context={
+                            'operation': 'telemetry_comparison',
+                            'session_id': session_id,
+                            'year': selected_year,
+                            'race': selected_race,
+                            'session': selected_session,
+                            'driver1': driver1,
+                            'driver2': driver2,
+                            'endpoint': '/'
+                        },
+                        level=ErrorSeverity.ERROR
+                    )
+
                     logging.error(f"💥 Exception for session {session_id[:8]}: {e}")
                     traceback.print_exc()
                     return render_template(

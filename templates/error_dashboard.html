@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Monitoring Dashboard - F1 Telemetry</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body {
+            font-family: "Inter", system-ui, sans-serif;
+            background: var(--surface);
+            color: var(--accent);
+            margin: 0;
+            padding: 0;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .dashboard-header h1 {
+            font-family: "Orbitron", monospace;
+            font-size: 2rem;
+            color: var(--primary);
+            margin: 0 0 0.5rem 0;
+            letter-spacing: 1px;
+        }
+
+        .dashboard-header p {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--surface-alt);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin: 0;
+        }
+
+        .stat-card.error .stat-value {
+            color: #e10600;
+        }
+
+        .stat-card.warning .stat-value {
+            color: #f59e0b;
+        }
+
+        .stat-card.info .stat-value {
+            color: #3b82f6;
+        }
+
+        .section {
+            background: var(--surface-alt);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 0 0 1rem 0;
+            color: var(--accent);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.75rem;
+        }
+
+        .error-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .error-table thead {
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .error-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            color: var(--accent);
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .error-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .error-table tbody tr:hover {
+            background: var(--surface);
+        }
+
+        .error-level {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .error-level.error {
+            background: rgba(225, 6, 0, 0.1);
+            color: #e10600;
+            border: 1px solid rgba(225, 6, 0, 0.3);
+        }
+
+        .error-level.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .error-level.info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .error-level.fatal {
+            background: rgba(220, 38, 38, 0.2);
+            color: #dc2626;
+            border: 1px solid rgba(220, 38, 38, 0.4);
+            font-weight: 700;
+        }
+
+        .error-type {
+            font-family: "SF Mono", "Monaco", "Cascadia Code", monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .error-message {
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .timestamp {
+            color: var(--muted);
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .fingerprint {
+            font-family: "SF Mono", "Monaco", "Cascadia Code", monospace;
+            font-size: 0.75rem;
+            color: var(--muted);
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .chart-container {
+            height: 200px;
+            margin-top: 1rem;
+        }
+
+        .trend-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 100%;
+            gap: 4px;
+        }
+
+        .trend-bar-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 100%;
+        }
+
+        .trend-bar {
+            width: 100%;
+            background: linear-gradient(180deg, var(--primary) 0%, rgba(225, 6, 0, 0.6) 100%);
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s ease;
+            min-height: 2px;
+        }
+
+        .trend-bar:hover {
+            opacity: 0.8;
+        }
+
+        .trend-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .top-errors-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .top-error-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .top-error-item:hover {
+            background: var(--surface);
+        }
+
+        .top-error-item:last-child {
+            border-bottom: none;
+        }
+
+        .top-error-info {
+            flex: 1;
+        }
+
+        .top-error-title {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.25rem;
+        }
+
+        .top-error-message {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .top-error-count {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-left: 1rem;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: #b60000;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--accent);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--muted);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-value {
+                font-size: 2rem;
+            }
+
+            .error-table {
+                font-size: 0.8rem;
+            }
+
+            .error-table th,
+            .error-table td {
+                padding: 0.5rem;
+            }
+
+            .action-bar {
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: stretch;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h1>ERROR MONITORING DASHBOARD</h1>
+            <p>Real-time error tracking and analysis for F1 Telemetry Application</p>
+        </div>
+
+        <div class="action-bar">
+            <a href="/" class="btn btn-secondary">← Back to Home</a>
+            <button class="btn" onclick="refreshDashboard()">🔄 Refresh</button>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card error">
+                <div class="stat-label">Total Errors</div>
+                <div class="stat-value">{{ total_errors }}</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-label">Warnings</div>
+                <div class="stat-value">{{ total_warnings }}</div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-label">Unique Groups</div>
+                <div class="stat-value">{{ unique_groups }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Error Rate</div>
+                <div class="stat-value">{{ error_rate }}<span style="font-size: 1rem; color: var(--muted);">/min</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Suppressed</div>
+                <div class="stat-value">{{ suppressed_errors }}</div>
+            </div>
+        </div>
+
+        <!-- Top Errors Section -->
+        <div class="section">
+            <h2 class="section-header">Top Error Groups</h2>
+            {% if top_errors %}
+            <ul class="top-errors-list">
+                {% for error in top_errors %}
+                <li class="top-error-item">
+                    <div class="top-error-info">
+                        <div class="top-error-title">{{ error.error_type }}</div>
+                        <div class="top-error-message">{{ error.message[:100] }}{% if error.message|length > 100 %}...{% endif %}</div>
+                        <div class="fingerprint">{{ error.fingerprint }}</div>
+                    </div>
+                    <div class="top-error-count">{{ error.count }}</div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p>No error groups found. System is healthy!</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Error Trends Chart -->
+        <div class="section">
+            <h2 class="section-header">Error Trends (Last Hour)</h2>
+            <div class="chart-container">
+                <div class="trend-chart" id="trendChart">
+                    <!-- Chart will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Errors Table -->
+        <div class="section">
+            <h2 class="section-header">Recent Errors (Last 50)</h2>
+            {% if recent_errors %}
+            <div style="overflow-x: auto;">
+                <table class="error-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Level</th>
+                            <th>Type</th>
+                            <th>Message</th>
+                            <th>Fingerprint</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for error in recent_errors %}
+                        <tr>
+                            <td class="timestamp">{{ error.timestamp }}</td>
+                            <td>
+                                <span class="error-level {{ error.level }}">{{ error.level }}</span>
+                            </td>
+                            <td class="error-type">{{ error.error_type }}</td>
+                            <td class="error-message">{{ error.message }}</td>
+                            <td>
+                                <span class="fingerprint">{{ error.fingerprint[:12] }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p>No recent errors found. System is running smoothly!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Render error trend chart
+        function renderTrendChart() {
+            fetch('/api/errors/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const chartContainer = document.getElementById('trendChart');
+                    chartContainer.innerHTML = '';
+
+                    if (!data.trends || data.trends.length === 0) {
+                        chartContainer.innerHTML = '<p style="text-align: center; color: var(--muted);">No trend data available</p>';
+                        return;
+                    }
+
+                    // Calculate max value for scaling
+                    const maxCount = Math.max(...data.trends.map(t => t.count), 1);
+
+                    // Create bars
+                    data.trends.forEach(trend => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'trend-bar-wrapper';
+
+                        const bar = document.createElement('div');
+                        bar.className = 'trend-bar';
+                        const height = (trend.count / maxCount) * 100;
+                        bar.style.height = `${Math.max(height, 2)}%`;
+                        bar.title = `${trend.time}: ${trend.count} errors`;
+
+                        const label = document.createElement('div');
+                        label.className = 'trend-label';
+                        label.textContent = trend.time;
+
+                        wrapper.appendChild(bar);
+                        wrapper.appendChild(label);
+                        chartContainer.appendChild(wrapper);
+                    });
+                })
+                .catch(error => {
+                    console.error('Failed to render trend chart:', error);
+                    document.getElementById('trendChart').innerHTML = '<p style="text-align: center; color: var(--muted);">Failed to load trend data</p>';
+                });
+        }
+
+        // Refresh dashboard
+        function refreshDashboard() {
+            location.reload();
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(renderTrendChart, 30000);
+
+        // Initial render
+        renderTrendChart();
+    </script>
+</body>
+</html>
