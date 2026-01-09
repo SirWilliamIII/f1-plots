@@ -11,6 +11,7 @@ import pandas as pd
 import logging
 import math
 import time
+import threading
 from io import BytesIO
 from fastf1 import plotting
 from flask import session as flask_session
@@ -18,8 +19,11 @@ from utils import classify_moment, extract_telemetry_context
 from app.services.context_service import store_telemetry_context
 
 
-# ✅ FIXED: Removed global plot buffer to prevent cross-user data leaks
-# Plot buffers are now stored per-session in Flask sessions
+# Server-side plot cache (avoids 4KB cookie limit)
+# Key: session_id, Value: {'plot': BytesIO, 'timestamp': time}
+_plot_cache = {}
+_plot_cache_lock = threading.Lock()
+_PLOT_CACHE_TTL = 3600  # 1 hour TTL
 
 
 def safe_int(val, default=0):
@@ -556,39 +560,57 @@ def compare_fastest_laps(session, drv1_abbr: str, drv2_abbr: str):
 
 def set_last_plot_buffer(plot_buffer):
     """
-    Store plot buffer in user's Flask session (thread-safe, per-user)
+    Store plot buffer in server-side cache (thread-safe, per-user)
 
-    ✅ FIXED: Previously used global variable causing cross-user data leaks
+    Uses server-side cache instead of Flask session to avoid 4KB cookie limit.
+    Plot images are typically 800KB+ which would corrupt cookie-based sessions.
     """
-    import base64
+    import uuid
 
-    # Convert buffer to base64 for session storage
+    # Get or create session ID
+    if 'plot_session_id' not in flask_session:
+        flask_session['plot_session_id'] = str(uuid.uuid4())
+    session_id = flask_session['plot_session_id']
+
+    # Store plot in server-side cache
     plot_buffer.seek(0)
-    plot_b64 = base64.b64encode(plot_buffer.read()).decode('utf-8')
-    flask_session['plot_data'] = plot_b64
+    plot_bytes = plot_buffer.read()
 
-    buffer_size = len(plot_b64)
-    logging.info(f"📊 Stored plot in session (size: {buffer_size:,} bytes)")
+    with _plot_cache_lock:
+        # Clean old entries first
+        current_time = time.time()
+        expired = [k for k, v in _plot_cache.items()
+                   if current_time - v['timestamp'] > _PLOT_CACHE_TTL]
+        for k in expired:
+            del _plot_cache[k]
+
+        # Store new plot
+        _plot_cache[session_id] = {
+            'plot': plot_bytes,
+            'timestamp': current_time
+        }
+
+    logging.info(f"📊 Stored plot in server cache (size: {len(plot_bytes):,} bytes)")
 
 
 def get_last_plot_buffer():
     """
-    Retrieve plot buffer from user's Flask session
+    Retrieve plot buffer from server-side cache
 
-    ✅ FIXED: Now retrieves from user's own session, not global variable
+    Uses server-side cache instead of Flask session to avoid 4KB cookie limit.
     """
-    import base64
-
-    plot_b64 = flask_session.get('plot_data')
-    if not plot_b64:
-        logging.warning("❌ No plot data in session")
+    session_id = flask_session.get('plot_session_id')
+    if not session_id:
+        logging.warning("❌ No plot session ID")
         return None
 
-    try:
-        plot_bytes = base64.b64decode(plot_b64)
+    with _plot_cache_lock:
+        cache_entry = _plot_cache.get(session_id)
+        if not cache_entry:
+            logging.warning("❌ No plot data in server cache")
+            return None
+
+        plot_bytes = cache_entry['plot']
         plot_buffer = BytesIO(plot_bytes)
-        logging.info(f"✅ Retrieved plot from session (size: {len(plot_bytes):,} bytes)")
+        logging.info(f"✅ Retrieved plot from server cache (size: {len(plot_bytes):,} bytes)")
         return plot_buffer
-    except Exception as e:
-        logging.error(f"Failed to decode plot from session: {e}")
-        return None
