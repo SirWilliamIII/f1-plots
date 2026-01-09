@@ -30,7 +30,10 @@
       "Bash(modal app list:*)",
       "Bash(scp:*)",
       "Bash(python:*)",
-      "Bash(sudo rm:*)"
+      "Bash(sudo rm:*)",
+      "Bash(time curl:*)",
+      "Bash(./scripts/status.sh:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
