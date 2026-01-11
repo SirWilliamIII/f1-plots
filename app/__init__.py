@@ -51,9 +51,20 @@ os.environ["MPLBACKEND"] = "Agg"
 os.environ["MPLCONFIGDIR"] = "/tmp"
 plt.switch_backend("Agg")
 
+# Custom function to get real client IP behind Cloudflare
+def get_real_ip():
+    """Get real client IP from X-Forwarded-For header (Cloudflare)"""
+    # Cloudflare adds the real client IP to X-Forwarded-For
+    forwarded_for = request.headers.get('X-Forwarded-For', '')
+    if forwarded_for:
+        # First IP in the list is the real client
+        return forwarded_for.split(',')[0].strip()
+    # Fallback to direct connection (development)
+    return request.remote_addr or '127.0.0.1'
+
 # Initialize rate limiter (will be configured in create_app)
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=get_real_ip,  # Use X-Forwarded-For for Cloudflare
     default_limits=["200 per hour", "50 per minute"],
     storage_uri="memory://",
     strategy="fixed-window"
