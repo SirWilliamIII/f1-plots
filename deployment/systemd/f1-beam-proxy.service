@@ -4,15 +4,19 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/f1-race-plots
-Environment="PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="BEAM_API_TOKEN=YOUR_TOKEN_HERE"
-ExecStart=/home/ubuntu/.local/bin/python3 deployment/ollama_beam_proxy.py
+User=will
+WorkingDirectory=/home/will/f1-plots
+Environment="PATH=/home/will/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="BEAM_API_TOKEN=vbEosEzP7GJST-3Pc-nZRzmq8Boe4QM2bIzR7DPOnymLAk5fQ6vxWlZ-qAoTKD008GZ5hl_4r44AgKzo486VWw=="
+Environment="BEAM_ENDPOINT_URL=https://f1-ollama-b942c80-v6.app.beam.cloud"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/uv run python deployment/ollama_beam_proxy.py
 Restart=always
 RestartSec=10
-StandardOutput=append:/home/ubuntu/f1-race-plots/logs/beam-proxy.log
-StandardError=append:/home/ubuntu/f1-race-plots/logs/beam-proxy.error.log
+StartLimitInterval=200
+StartLimitBurst=5
+StandardOutput=append:/home/will/f1-plots/logs/beam_proxy.log
+StandardError=append:/home/will/f1-plots/logs/beam_proxy.error.log
 
 [Install]
 WantedBy=multi-user.target

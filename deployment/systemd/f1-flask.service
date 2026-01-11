@@ -5,17 +5,21 @@ Wants=f1-beam-proxy.service
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/f1-race-plots
-Environment="PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin"
+User=will
+WorkingDirectory=/home/will/f1-plots
+Environment="PATH=/home/will/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="FLASK_ENV=production"
 Environment="PORT=5151"
 Environment="OLLAMA_BASE_URL=http://localhost:11435"
-ExecStart=/home/ubuntu/.local/bin/python3 run.py
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=-/home/will/f1-plots/.env.prod
+ExecStart=/usr/bin/uv run run.py
 Restart=always
 RestartSec=10
-StandardOutput=append:/home/ubuntu/f1-race-plots/logs/flask.log
-StandardError=append:/home/ubuntu/f1-race-plots/logs/flask.error.log
+StartLimitInterval=200
+StartLimitBurst=5
+StandardOutput=append:/home/will/f1-plots/logs/flask.log
+StandardError=append:/home/will/f1-plots/logs/flask.error.log
 
 [Install]
 WantedBy=multi-user.target
