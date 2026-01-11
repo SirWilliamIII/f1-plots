@@ -56,7 +56,7 @@ cd "$PROJECT_DIR"
 
 # Start Beam proxy
 echo -e "${YELLOW}Starting Beam GPU proxy on port $PROXY_PORT...${NC}"
-nohup python deployment/ollama_beam_proxy.py > "$LOG_DIR/beam-proxy.log" 2>&1 &
+nohup python3 deployment/ollama_beam_proxy.py > "$LOG_DIR/beam-proxy.log" 2>&1 &
 PROXY_PID=$!
 echo "  PID: $PROXY_PID"
 
@@ -77,7 +77,7 @@ export FLASK_ENV=production
 export PORT=$FLASK_PORT
 export OLLAMA_BASE_URL=http://localhost:$PROXY_PORT
 
-nohup python run.py > "$LOG_DIR/flask.log" 2>&1 &
+nohup python3 run.py > "$LOG_DIR/flask.log" 2>&1 &
 FLASK_PID=$!
 echo "  PID: $FLASK_PID"
 

@@ -8,7 +8,7 @@ User=ubuntu
 WorkingDirectory=/home/ubuntu/f1-race-plots
 Environment="PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="BEAM_API_TOKEN=YOUR_TOKEN_HERE"
-ExecStart=/home/ubuntu/.local/bin/python deployment/ollama_beam_proxy.py
+ExecStart=/home/ubuntu/.local/bin/python3 deployment/ollama_beam_proxy.py
 Restart=always
 RestartSec=10
 StandardOutput=append:/home/ubuntu/f1-race-plots/logs/beam-proxy.log

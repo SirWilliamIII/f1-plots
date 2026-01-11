@@ -11,7 +11,7 @@ Environment="PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="FLASK_ENV=production"
 Environment="PORT=5151"
 Environment="OLLAMA_BASE_URL=http://localhost:11435"
-ExecStart=/home/ubuntu/.local/bin/python run.py
+ExecStart=/home/ubuntu/.local/bin/python3 run.py
 Restart=always
 RestartSec=10
 StandardOutput=append:/home/ubuntu/f1-race-plots/logs/flask.log
