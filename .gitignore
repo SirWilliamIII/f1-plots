@@ -192,7 +192,6 @@ __pycache__/
 *.sqlite3
 
 .DS_Store
-deployment
 .vscode/*
 .idea*
 # Local virtualenv

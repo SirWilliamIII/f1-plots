@@ -1,0 +1,14 @@
+[Unit]
+Description=Cloudflare Tunnel for F1 Telemetry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/usr/local/bin/cloudflared tunnel run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
