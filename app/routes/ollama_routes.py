@@ -11,6 +11,7 @@ from flask import request, jsonify, Response, stream_with_context, session as fl
 from app.services.context_service import retrieve_telemetry_context
 from app.services.ai_service import create_contextual_prompt
 from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
+from app import limiter
 
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
@@ -20,6 +21,7 @@ def register_ollama_routes(app):
     """Register Ollama proxy routes"""
 
     @app.route("/ollama_proxy/tags", methods=["GET"])
+    @limiter.limit("20 per minute")
     def ollama_tags():
         """Proxy endpoint to check Ollama connection"""
         try:
@@ -45,6 +47,8 @@ def register_ollama_routes(app):
             return jsonify({"error": "Ollama not available", "url": OLLAMA_BASE_URL, "details": str(e)}), 503
 
     @app.route("/ollama_proxy/generate", methods=["POST"])
+    @limiter.limit("5 per minute")  # Strict limit for expensive GPU endpoint
+    @limiter.limit("20 per hour")
     def ollama_generate():
         """Proxy endpoint with session-scoped telemetry context injection"""
         try:

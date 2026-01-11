@@ -16,6 +16,8 @@ import logging
 from flask import Flask, jsonify, request
 from flask_compress import Compress
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 from session_manager import initialize_fastf1_cache
 from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
@@ -49,6 +51,14 @@ os.environ["MPLBACKEND"] = "Agg"
 os.environ["MPLCONFIGDIR"] = "/tmp"
 plt.switch_backend("Agg")
 
+# Initialize rate limiter (will be configured in create_app)
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per hour", "50 per minute"],
+    storage_uri="memory://",
+    strategy="fixed-window"
+)
+
 def create_app():
     """Application factory pattern"""
     app = Flask(__name__,
@@ -61,9 +71,33 @@ def create_app():
     # Extensions
     Compress(app)
     CORS(app)
+    limiter.init_app(app)
 
     # Initialize FastF1 cache
     initialize_fastf1_cache("fastf1_cache")
+
+    # Basic bot protection middleware
+    @app.before_request
+    def block_suspicious_requests():
+        """Block obvious bot patterns"""
+        # Skip static files and health checks
+        if request.path.startswith('/static/') or request.path == '/health':
+            return None
+
+        user_agent = request.user_agent.string.lower() if request.user_agent and request.user_agent.string else ""
+
+        # Block empty or suspicious user agents in production only
+        suspicious_patterns = ['scraper']  # Only block obvious scrapers, allow curl/wget for testing
+        if env == 'production' and any(pattern in user_agent for pattern in suspicious_patterns):
+            logging.warning(f"Blocked suspicious user agent: {user_agent}")
+            return jsonify({"error": "Forbidden"}), 403
+
+        # Block requests without referrer to API endpoints (basic CSRF protection)
+        # Only enforce in production
+        if env == 'production' and request.path.startswith('/ollama_proxy/generate'):
+            if not request.referrer or 'f1.linux-box.cc' not in request.referrer:
+                logging.warning(f"Blocked request without valid referrer to {request.path}")
+                return jsonify({"error": "Forbidden - Invalid request origin"}), 403
 
     # Register middleware
     from app.middleware.cleanup import register_cleanup_hooks
@@ -89,6 +123,16 @@ def create_app():
     register_memory_routes(app)
     register_error_dashboard_routes(app)
     register_recovery_routes(app)
+
+    # Rate limit error handler
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        """Custom handler for rate limit exceeded"""
+        return jsonify({
+            "error": "Rate limit exceeded",
+            "message": "Too many requests. Please slow down and try again later.",
+            "retry_after": e.description
+        }), 429
 
     # Error handlers with ErrorTracker integration
     from werkzeug.exceptions import HTTPException
