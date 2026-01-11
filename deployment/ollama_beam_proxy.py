@@ -42,7 +42,7 @@ app = Flask(__name__)
 BEAM_API_TOKEN = os.environ.get("BEAM_API_TOKEN")
 BEAM_ENDPOINT_URL = os.environ.get(
     "BEAM_ENDPOINT_URL",
-    "https://app.beam.cloud/endpoint/f1-ollama"
+    "https://f1-ollama-b942c80-v1.app.beam.cloud"
 )
 BEAM_HEALTH_URL = os.environ.get(
     "BEAM_HEALTH_URL",
