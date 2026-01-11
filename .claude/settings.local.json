@@ -33,7 +33,9 @@
       "Bash(sudo rm:*)",
       "Bash(time curl:*)",
       "Bash(./scripts/status.sh:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:docs.beam.cloud)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

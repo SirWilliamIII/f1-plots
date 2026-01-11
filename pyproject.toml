@@ -2,7 +2,7 @@
 name = "f1-race-plots"
 version = "0.1.0"
 description = "Add your description here"
-readme = "README.md"
+readme = "CLAUDE.md"
 requires-python = ">=3.10"
 dependencies = [
     "flask>=3.0.0",
@@ -20,5 +20,4 @@ dependencies = [
     "spacy>=3.8.7",
     "pip>=25.1.1",
     "psutil>=6.2.0",
-    "modal>=1.2.2",
 ]
