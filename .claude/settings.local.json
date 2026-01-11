@@ -35,7 +35,12 @@
       "Bash(./scripts/status.sh:*)",
       "Bash(pkill:*)",
       "Bash(ls:*)",
-      "WebFetch(domain:docs.beam.cloud)"
+      "WebFetch(domain:docs.beam.cloud)",
+      "Bash(beam deployment:*)",
+      "Bash(env)",
+      "Bash(beam logs:*)",
+      "Bash(beam deploy:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
