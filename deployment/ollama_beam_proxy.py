@@ -134,7 +134,7 @@ def generate():
                 "prompt": prompt,
                 "temperature": temperature
             },
-            timeout=180  # 3 minute timeout for inference
+            timeout=720  # 12 minute timeout (allows for cold start + model download)
         )
 
         elapsed = time.time() - start_time
@@ -258,7 +258,7 @@ def chat():
                 "prompt": prompt,
                 "temperature": temperature
             },
-            timeout=180
+            timeout=720
         )
 
         elapsed = time.time() - start_time
