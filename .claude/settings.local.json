@@ -40,7 +40,8 @@
       "Bash(env)",
       "Bash(beam logs:*)",
       "Bash(beam deploy:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(sudo journalctl:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

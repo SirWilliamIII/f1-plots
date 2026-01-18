@@ -135,6 +135,45 @@ def create_app():
     register_error_dashboard_routes(app)
     register_recovery_routes(app)
 
+    # Cloudflare edge caching headers
+    @app.after_request
+    def add_cache_headers(response):
+        """Add Cache-Control headers for Cloudflare edge caching"""
+        # Only cache successful GET responses
+        if request.method != 'GET' or response.status_code != 200:
+            return response
+
+        path = request.path
+
+        # Static assets: long cache (1 day browser, 1 week edge)
+        if path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=86400, s-maxage=604800'
+            return response
+
+        # CSS, JS, and images
+        content_type = response.content_type or ''
+        if any(ct in content_type for ct in ['text/css', 'javascript', 'image/']):
+            response.headers['Cache-Control'] = 'public, max-age=86400, s-maxage=604800'
+            return response
+
+        # Index page (GET only): short cache (1 min browser, 5 min edge)
+        if path == '/' and request.method == 'GET':
+            response.headers['Cache-Control'] = 'public, max-age=60, s-maxage=300'
+            return response
+
+        # API responses that rarely change
+        if path in ['/health', '/cache/status']:
+            response.headers['Cache-Control'] = 'public, max-age=30, s-maxage=60'
+            return response
+
+        # Plot images: no edge cache (session-specific)
+        if path == '/plot.png':
+            response.headers['Cache-Control'] = 'private, no-store'
+            return response
+
+        # Default: no cache for dynamic content
+        return response
+
     # Rate limit error handler
     @app.errorhandler(429)
     def ratelimit_handler(e):

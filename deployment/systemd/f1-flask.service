@@ -13,7 +13,7 @@ Environment="PORT=5151"
 Environment="OLLAMA_BASE_URL=http://localhost:11435"
 Environment="PYTHONUNBUFFERED=1"
 EnvironmentFile=-/home/will/f1-plots/.env.prod
-ExecStart=/usr/bin/uv run run.py
+ExecStart=/home/will/.local/bin/uv run run.py
 Restart=always
 RestartSec=10
 StartLimitInterval=200

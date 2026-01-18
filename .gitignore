@@ -206,6 +206,8 @@ env.list
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
 fastf1_cache/
+comparison_cache/
+logs/
 
 .vscode/
 

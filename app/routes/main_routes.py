@@ -9,6 +9,7 @@ from flask import render_template, request
 from session_manager import get_races_cached
 from app.services.context_service import get_or_create_session_id, store_telemetry_context
 from app.plotting.telemetry_plots import compare_fastest_laps, set_last_plot_buffer
+from app.services.result_cache import get_cached_result, cache_result
 from app.middleware.cleanup import get_session_manager
 from app.metrics import REQUEST_COUNT, REQUEST_LATENCY
 from app.error_tracking.error_tracker import get_error_tracker, ErrorSeverity
@@ -86,12 +87,22 @@ def register_main_routes(app):
                 try:
                     logging.info(f"🏎️  Loading {selected_year} {selected_race} {selected_session} for session {session_id[:8]}")
 
-                    # Load session using smart session manager
-                    session_manager = get_session_manager()
-                    session_obj = session_manager.get_session(selected_year, selected_race, session_type)
+                    # Check cache first for instant results
+                    cached = get_cached_result(selected_year, selected_race, session_type, driver1, driver2)
 
-                    # Use enhanced comparison function
-                    comparison_result = compare_fastest_laps(session_obj, driver1, driver2)
+                    if cached:
+                        comparison_result = cached
+                        logging.info(f"⚡ Using cached result for {driver1} vs {driver2}")
+                    else:
+                        # Load session using smart session manager
+                        session_manager = get_session_manager()
+                        session_obj = session_manager.get_session(selected_year, selected_race, session_type)
+
+                        # Use enhanced comparison function
+                        comparison_result = compare_fastest_laps(session_obj, driver1, driver2)
+
+                        # Cache the result for future requests
+                        cache_result(selected_year, selected_race, session_type, driver1, driver2, comparison_result)
 
                     # Unpack results (including plot annotations)
                     (plot_path, drv1_abbr, drv1_lap_time_str, drv2_abbr, drv2_lap_time_str,

@@ -92,26 +92,18 @@ document.addEventListener("DOMContentLoaded", function () {
         step.classList.toggle("active", idx === 1);
       });
 
-      // Load races for the selected year
+      // Load races for the selected year (using GET for Cloudflare caching)
 
-      fetch("/get_races", {
-        method: "POST",
-
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-
-        body: `year=${this.value}`,
-      })
+      fetch(`/api/races/${this.value}`)
         .then((r) => r.json())
 
         .then((data) => {
           if (data.races && data.races.length) {
             data.races.forEach((race) => {
               const opt = document.createElement("option");
-
-              opt.value = race.event_name;
-
-              opt.textContent = `${race.country} (${race.event_name})`;
-
+              // Race is a string (event name)
+              opt.value = race;
+              opt.textContent = race;
               raceSel.appendChild(opt);
             });
 

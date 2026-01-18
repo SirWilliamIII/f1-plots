@@ -8,7 +8,7 @@ import os
 import logging
 import requests
 from datetime import datetime
-from flask import request, jsonify, Response, stream_with_context, session as flask_session
+from flask import request, jsonify, Response, stream_with_context, session as flask_session, make_response
 from session_manager import get_races_cached
 import fastf1 as f1
 from app.services.context_service import retrieve_telemetry_context
@@ -24,44 +24,57 @@ def register_api_routes(app):
 
     @app.route("/get_races", methods=["POST"])
     def get_races():
-        """Get list of races for a given year"""
-        # ✅ FIXED: Don't increment metrics here (wait for after_request)
+        """Get list of races for a given year (POST - legacy)"""
         with REQUEST_LATENCY.labels(method="POST", endpoint="/get_races").time():
             year = int(request.form["year"])
-            try:
-                races = get_races_cached(year)
-                race_names = []
-                for race in races:
-                    if isinstance(race, str):
-                        race_names.append(race)
-                    elif hasattr(race, "EventName"):
-                        race_names.append(race.EventName)
-                    elif hasattr(race, "name"):
-                        race_names.append(race.name)
-                    else:
-                        race_names.append(str(race))
+            return _get_races_for_year(year)
 
-                # Filter out future races if current year is selected
-                current_year = datetime.now().year
-                if year == current_year:
-                    remaining_events = set(f1.get_events_remaining()["EventName"])
-                    race_names = [r for r in race_names if r not in remaining_events]
+    @app.route("/api/races/<int:year>", methods=["GET"])
+    def get_races_cached_endpoint(year):
+        """Get list of races for a given year (GET - cacheable by Cloudflare)"""
+        with REQUEST_LATENCY.labels(method="GET", endpoint="/api/races").time():
+            response = _get_races_for_year(year)
+            # Add cache headers for Cloudflare edge (1 hour browser, 1 day edge)
+            if response.status_code == 200:
+                response.headers['Cache-Control'] = 'public, max-age=3600, s-maxage=86400'
+            return response
 
-                logging.info(f"Returning {len(race_names)} races for year={year}")
-                return jsonify({"races": race_names})
-            except Exception as e:
-                error_tracker = get_error_tracker()
-                error_tracker.capture_exception(
-                    e,
-                    context={
-                        'operation': 'get_races',
-                        'year': year,
-                        'endpoint': '/get_races'
-                    },
-                    level=ErrorSeverity.ERROR
-                )
-                logging.error(f"[ERROR] Failed to fetch races: {e}")
-                return jsonify({"error": "Failed to fetch races"}), 500
+    def _get_races_for_year(year):
+        """Internal helper to get races for a year"""
+        try:
+            races = get_races_cached(year)
+            race_names = []
+            for race in races:
+                if isinstance(race, str):
+                    race_names.append(race)
+                elif hasattr(race, "EventName"):
+                    race_names.append(race.EventName)
+                elif hasattr(race, "name"):
+                    race_names.append(race.name)
+                else:
+                    race_names.append(str(race))
+
+            # Filter out future races if current year is selected
+            current_year = datetime.now().year
+            if year == current_year:
+                remaining_events = set(f1.get_events_remaining()["EventName"])
+                race_names = [r for r in race_names if r not in remaining_events]
+
+            logging.info(f"Returning {len(race_names)} races for year={year}")
+            return make_response(jsonify({"races": race_names}), 200)
+        except Exception as e:
+            error_tracker = get_error_tracker()
+            error_tracker.capture_exception(
+                e,
+                context={
+                    'operation': 'get_races',
+                    'year': year,
+                    'endpoint': '/get_races'
+                },
+                level=ErrorSeverity.ERROR
+            )
+            logging.error(f"[ERROR] Failed to fetch races: {e}")
+            return make_response(jsonify({"error": "Failed to fetch races"}), 500)
 
     @app.route("/get_drivers", methods=["POST"])
     def get_drivers():
